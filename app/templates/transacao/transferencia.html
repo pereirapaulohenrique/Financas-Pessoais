@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block title %}Nova Transferência - Finanças Pessoais{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h5 class="card-title mb-0">Nova Transferência entre Contas</h5>
+    </div>
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('transacao.nova_transferencia') }}" class="needs-validation" novalidate>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label for="conta_origem" class="form-label">Conta de Origem</label>
+                    <select class="form-select" id="conta_origem" name="conta_origem" required>
+                        <option value="">Selecione a conta de origem...</option>
+                        {% for conta in contas %}
+                        <option value="{{ conta.id }}">{{ conta.nome }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="invalid-feedback">
+                        Selecione a conta de origem.
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <label for="conta_destino" class="form-label">Conta de Destino</label>
+                    <select class="form-select" id="conta_destino" name="conta_destino" required>
+                        <option value="">Selecione a conta de destino...</option>
+                        {% for conta in contas %}
+                        <option value="{{ conta.id }}">{{ conta.nome }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="invalid-feedback">
+                        Selecione a conta de destino.
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <label for="data" class="form-label">Data da Transferência</label>
+                    <input type="date" class="form-control" id="data" name="data" 
+                           value="{{ hoje.strftime('%Y-%m-%d') }}" required>
+                    <div class="invalid-feedback">
+                        Informe a data da transferência.
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <label for="valor" class="form-label">Valor</label>
+                    <div class="input-group">
+                        <span class="input-group-text">R$</span>
+                        <input type="number" class="form-control" id="valor" name="valor" 
+                               step="0.01" min="0.01" required>
+                        <div class="invalid-feedback">
+                            Informe um valor válido maior que zero.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <label for="descricao" class="form-label">Descrição</label>
+                    <input type="text" class="form-control" id="descricao" name="descricao" 
+                           placeholder="Descrição da transferência">
+                </div>
+
+                <div class="col-12">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="lancamento_futuro" 
+                               name="lancamento_futuro">
+                        <label class="form-check-label" for="lancamento_futuro">
+                            Lançamento Futuro
+                        </label>
+                    </div>
+                </div>
+
+                <div class="col-12 mt-4">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-exchange-alt me-2"></i>Realizar Transferência
+                    </button>
+                    <a href="{{ url_for('transacao.consultar') }}" class="btn btn-secondary">
+                        <i class="fas fa-times me-2"></i>Cancelar
+                    </a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Validação do formulário
+    (function () {
+        'use strict'
+
+        var forms = document.querySelectorAll('.needs-validation')
+
+        Array.prototype.slice.call(forms)
+            .forEach(function (form) {
+                form.addEventListener('submit', function (event) {
+                    if (!form.checkValidity()) {
+                        event.preventDefault()
+                        event.stopPropagation()
+                    }
+
+                    // Validação adicional: conta origem diferente da destino
+                    var contaOrigem = document.getElementById('conta_origem')
+                    var contaDestino = document.getElementById('conta_destino')
+                    
+                    if (contaOrigem.value === contaDestino.value) {
+                        event.preventDefault()
+                        alert('A conta de origem deve ser diferente da conta de destino')
+                        return
+                    }
+
+                    form.classList.add('was-validated')
+                }, false)
+            })
+    })()
+</script>
+{% endblock %}

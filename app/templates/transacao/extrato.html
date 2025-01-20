@@ -1,0 +1,348 @@
+{% extends "base.html" %}
+
+{% block title %}Extrato Financeiro{% endblock %}
+
+{% block extra_css %}
+<style>
+    .filters-card form {
+        display: flex;
+        gap: 1rem;
+        align-items: flex-end;
+    }
+
+    .form-group {
+        flex: 1;
+        min-width: 200px;
+    }
+
+    .table thead th {
+        background-color: var(--accent-color);
+        color: white;
+    }
+
+    .valor-positivo {
+        color: var(--success-color);
+        font-weight: 500;
+    }
+
+    .valor-negativo {
+        color: var(--danger-color);
+        font-weight: 500;
+    }
+
+    .valor-previsto {
+        opacity: 0.8;
+    }
+
+    .valor-clicavel {
+        cursor: pointer;
+        transition: opacity 0.2s;
+    }
+
+    .valor-clicavel:hover {
+        opacity: 0.8;
+    }
+
+    .modal-detalhes .table th {
+        background-color: var(--accent-color);
+        color: white;
+    }
+
+    .modal-detalhes .valor-positivo {
+        color: var(--success-color);
+        font-weight: 500;
+    }
+
+    .modal-detalhes .valor-negativo {
+        color: var(--danger-color);
+        font-weight: 500;
+    }
+
+    @media (max-width: 768px) {
+        .filters-card form {
+            flex-direction: column;
+        }
+        
+        .form-group {
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1 class="h3 mb-4">Extrato Financeiro</h1>
+
+<!-- Filtros -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-3">
+            <div class="col-md-4">
+                <label for="data_inicio" class="form-label">Data Início</label>
+                <input type="date" class="form-control" id="data_inicio" name="data_inicio" 
+                       value="{{ data_inicio }}">
+            </div>
+            <div class="col-md-4">
+                <label for="data_fim" class="form-label">Data Fim</label>
+                <input type="date" class="form-control" id="data_fim" name="data_fim" 
+                       value="{{ data_fim }}">
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-filter me-2"></i>Filtrar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Cards de Resumo -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Saldo Inicial</h5>
+                <p class="h3 mb-0 {{ 'valor-positivo' if saldo_inicial >= 0 else 'valor-negativo' }}">
+                    R$ {{ "%.2f"|format(saldo_inicial)|replace('.', ',') }}
+                </p>
+                <small class="text-muted">Saldo no início do período</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Saldo Final</h5>
+                <p class="h3 mb-0 {{ 'valor-positivo' if saldo_final >= 0 else 'valor-negativo' }}">
+                    R$ {{ "%.2f"|format(saldo_final)|replace('.', ',') }}
+                </p>
+                <small class="text-muted">Considerando apenas transações reais</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Saldo Projetado</h5>
+                <p class="h3 mb-0 {{ 'valor-positivo' if saldo_projetado >= 0 else 'valor-negativo' }}">
+                    R$ {{ "%.2f"|format(saldo_projetado)|replace('.', ',') }}
+                </p>
+                <small class="text-muted">Incluindo transações previstas</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabela de Extrato -->
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Data</th>
+                    <th class="text-end">Receita Real</th>
+                    <th class="text-end">Despesa Real</th>
+                    <th class="text-end">Receita Prevista</th>
+                    <th class="text-end">Despesa Prevista</th>
+                    <th class="text-end">Saldo Projetado</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for linha in extrato %}
+                <tr>
+                    <td>{{ linha.data.strftime('%d/%m/%Y') }}</td>
+                    <td class="text-end">
+                        {% if linha.receita_real > 0 %}
+                            {% set detalhes_receita = linha.detalhes.receita_real|tojson|safe if linha.detalhes.receita_real else '[]' %}
+                            <span class="valor-clicavel valor-positivo"
+                                  data-tipo="receita_real"
+                                  data-data="{{ linha.data.strftime('%Y-%m-%d') }}"
+                                  data-valor="{{ linha.receita_real }}"
+                                  data-detalhes='{{ detalhes_receita }}'>
+                                R$ {{ "%.2f"|format(linha.receita_real)|replace('.', ',') }}
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        {% if linha.despesa_real > 0 %}
+                            {% set detalhes_despesa = linha.detalhes.despesa_real|tojson|safe if linha.detalhes.despesa_real else '[]' %}
+                            <span class="valor-clicavel valor-negativo"
+                                  data-tipo="despesa_real"
+                                  data-data="{{ linha.data.strftime('%Y-%m-%d') }}"
+                                  data-valor="{{ linha.despesa_real }}"
+                                  data-detalhes='{{ detalhes_despesa }}'>
+                                R$ {{ "%.2f"|format(linha.despesa_real)|replace('.', ',') }}
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        {% if linha.receita_prevista > 0 %}
+                            {% set detalhes_receita_prev = linha.detalhes.receita_prevista|tojson|safe if linha.detalhes.receita_prevista else '[]' %}
+                            <span class="valor-clicavel valor-positivo valor-previsto"
+                                  data-tipo="receita_prevista"
+                                  data-data="{{ linha.data.strftime('%Y-%m-%d') }}"
+                                  data-valor="{{ linha.receita_prevista }}"
+                                  data-detalhes='{{ detalhes_receita_prev }}'>
+                                R$ {{ "%.2f"|format(linha.receita_prevista)|replace('.', ',') }}
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        {% if linha.despesa_prevista > 0 %}
+                            {% set detalhes_despesa_prev = linha.detalhes.despesa_prevista|tojson|safe if linha.detalhes.despesa_prevista else '[]' %}
+                            <span class="valor-clicavel valor-negativo valor-previsto"
+                                  data-tipo="despesa_prevista"
+                                  data-data="{{ linha.data.strftime('%Y-%m-%d') }}"
+                                  data-valor="{{ linha.despesa_prevista }}"
+                                  data-detalhes='{{ detalhes_despesa_prev }}'>
+                                R$ {{ "%.2f"|format(linha.despesa_prevista)|replace('.', ',') }}
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        <span class="{{ 'valor-positivo' if linha.saldo_projetado >= 0 else 'valor-negativo' }}">
+                            R$ {{ "%.2f"|format(linha.saldo_projetado)|replace('.', ',') }}
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal de Detalhes -->
+<div class="modal fade modal-detalhes" id="modalDetalhes" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Detalhes do Lançamento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Descrição</th>
+                                <th>Categoria</th>
+                                <th class="text-end">Valor</th>
+                            </tr>
+                        </thead>
+                        <tbody id="modalTableBody"></tbody>
+                        <tfoot>
+                            <tr class="table-light">
+                                <td colspan="3" class="text-end fw-bold">Total:</td>
+                                <td class="text-end fw-bold" id="modalTotal"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let modalInstance;
+
+function formatarMoeda(valor) {
+    return new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
+    }).format(valor);
+}
+
+function mostrarDetalhes(tipo, data, valorTotal, detalhes) {
+    console.log('mostrarDetalhes chamado com:', { tipo, data, valorTotal, detalhes });
+    
+    try {
+        if (!modalInstance) {
+            modalInstance = new bootstrap.Modal(document.getElementById('modalDetalhes'));
+        }
+
+        const modalTitle = document.querySelector('#modalDetalhes .modal-title');
+        const tableBody = document.getElementById('modalTableBody');
+        const totalElement = document.getElementById('modalTotal');
+        
+        const titulos = {
+            'receita_real': 'Receitas Realizadas',
+            'despesa_real': 'Despesas Realizadas',
+            'receita_prevista': 'Receitas Previstas',
+            'despesa_prevista': 'Despesas Previstas'
+        };
+        
+        modalTitle.textContent = `${titulos[tipo]} - ${new Date(data).toLocaleDateString()}`;
+        tableBody.innerHTML = '';
+        
+        if (!Array.isArray(detalhes)) {
+            detalhes = [];
+        }
+
+        detalhes.forEach(item => {
+            const tr = document.createElement('tr');
+            const dataStr = tipo.includes('prevista') ? item.data_prevista : item.data;
+            
+            tr.innerHTML = `
+                <td>${dataStr}</td>
+                <td>${item.descricao || ''}</td>
+                <td>${item.categoria || 'N/A'}</td>
+                <td class="text-end ${valorTotal >= 0 ? 'valor-positivo' : 'valor-negativo'}">
+                    ${formatarMoeda(item.valor)}
+                </td>
+            `;
+            tableBody.appendChild(tr);
+        });
+        
+        totalElement.textContent = formatarMoeda(valorTotal);
+        totalElement.className = `text-end fw-bold ${valorTotal >= 0 ? 'valor-positivo' : 'valor-negativo'}`;
+        
+        modalInstance.show();
+    } catch (error) {
+        console.error('Erro ao mostrar detalhes:', error);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    try {
+        // Inicializar modal
+        const modalElement = document.getElementById('modalDetalhes');
+        if (modalElement) {
+            modalInstance = new bootstrap.Modal(modalElement);
+        }
+
+        // Adicionar validação do formulário
+        const form = document.querySelector('form');
+        const dataInicio = document.getElementById('data_inicio');
+        const dataFim = document.getElementById('data_fim');
+
+        if (form && dataInicio && dataFim) {
+            form.addEventListener('submit', function(e) {
+                if (dataInicio.value > dataFim.value) {
+                    e.preventDefault();
+                    alert('A data inicial não pode ser maior que a data final');
+                }
+            });
+        }
+        
+        // Adicionar listeners para valores clicáveis
+        document.querySelectorAll('.valor-clicavel').forEach(element => {
+            element.addEventListener('click', function() {
+                const tipo = this.dataset.tipo;
+                const data = this.dataset.data;
+                const valor = parseFloat(this.dataset.valor);
+                const detalhes = JSON.parse(this.dataset.detalhes);
+                
+                mostrarDetalhes(tipo, data, valor, detalhes);
+            });
+        });
+        
+    } catch (error) {
+        console.error('Erro na inicialização:', error);
+    }
+});
+</script>
+{% endblock %}

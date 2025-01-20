@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+
+{% block title %}Editar Conta - Finanças Pessoais{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-row {
+        display: flex;
+        gap: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .form-group {
+        flex: 1;
+    }
+
+    .cartoes-section {
+        margin-top: 2rem;
+        border-top: 1px solid var(--border);
+        padding-top: 1rem;
+    }
+
+    .cartao-item {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .cartao-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    .cartao-header h6 {
+        margin: 0;
+        color: var(--header-color);
+    }
+
+    .cartao-form {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+    }
+
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+    }
+
+    .modal-content {
+        background: white;
+        padding: 2rem;
+        border-radius: 8px;
+        width: 90%;
+        max-width: 500px;
+        position: relative;
+        margin: 10vh auto;
+    }
+
+    @media (max-width: 768px) {
+        .form-row {
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .cartao-form {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="card-title mb-0">Editar Conta</h5>
+        <a href="{{ url_for('conta.listar') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Voltar
+        </a>
+    </div>
+    <div class="card-body">
+        <form method="POST" id="formEditarConta">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="nome" class="form-label">Nome da Conta *</label>
+                    <input type="text" id="nome" name="nome" class="form-control" value="{{ conta.nome }}" required>
+                </div>
+                <div class="form-group">
+                    <label for="tipo_conta" class="form-label">Tipo de Conta *</label>
+                    <select id="tipo_conta" name="tipo_conta" class="form-select" required>
+                        <option value="Conta corrente" {% if conta.tipo == "Conta corrente" %}selected{% endif %}>Conta corrente</option>
+                        <option value="Conta salário" {% if conta.tipo == "Conta salário" %}selected{% endif %}>Conta salário</option>
+                        <option value="Conta poupança" {% if conta.tipo == "Conta poupança" %}selected{% endif %}>Conta poupança</option>
+                        <option value="Conta de investimento" {% if conta.tipo == "Conta de investimento" %}selected{% endif %}>Conta de investimento</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group mb-4">
+                <label class="form-label">Titular</label>
+                <input type="text" class="form-control" value="{{ conta.titular.nome_completo }}" disabled>
+            </div>
+
+            <div class="col-md-6">
+                <label for="saldo_inicial" class="form-label">Saldo Inicial</label>
+                <div class="input-group">
+                    <span class="input-group-text">R$</span>
+                    <input type="number" step="0.01" id="saldo_inicial" name="saldo_inicial" 
+                           class="form-control" value="{{ conta.saldo_inicial }}" required>
+                </div>
+                <div class="form-text">
+                    Este valor será considerado como saldo inicial da conta e afetará o cálculo do saldo atual.
+                </div>
+            </div>
+
+            <div class="cartoes-section">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="mb-0">Cartões de Crédito Vinculados</h6>
+                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="adicionarCartao()">
+                        <i class="fas fa-plus me-2"></i>Adicionar Cartão
+                    </button>
+                </div>
+
+                <div id="cartoes-container">
+                    {% for cartao in conta.cartoes %}
+                    <div class="cartao-item" id="cartao-{{ cartao.id }}">
+                        <div class="cartao-header">
+                            <h6>Cartão de Crédito</h6>
+                            <button type="button" class="btn btn-outline-danger btn-sm" onclick="removerCartao({{ cartao.id }})">
+                                <i class="fas fa-trash me-1"></i>Remover
+                            </button>
+                        </div>
+                        <div class="cartao-form">
+                            <input type="hidden" name="cartao_ids[]" value="{{ cartao.id }}">
+                            <div class="form-group">
+                                <label class="form-label">Nome do Cartão *</label>
+                                <input type="text" name="cartao_nome[]" class="form-control" value="{{ cartao.nome }}" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Limite *</label>
+                                <input type="number" name="cartao_limite[]" class="form-control" value="{{ cartao.limite }}" step="0.01" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Dia do Fechamento *</label>
+                                <select name="cartao_fechamento[]" class="form-select" required>
+                                    {% for dia in range(1, 32) %}
+                                    <option value="{{ dia }}" {% if cartao.fechamento == dia %}selected{% endif %}>{{ dia }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Dia do Vencimento *</label>
+                                <select name="cartao_vencimento[]" class="form-select" required>
+                                    {% for dia in range(1, 32) %}
+                                    <option value="{{ dia }}" {% if cartao.vencimento == dia %}selected{% endif %}>{{ dia }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="d-flex gap-2 mt-4">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save me-2"></i>Salvar Alterações
+                </button>
+                <a href="{{ url_for('conta.listar') }}" class="btn btn-outline-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Template para novo cartão -->
+<template id="novo-cartao-template">
+    <div class="cartao-item" id="cartao-novo-{ID}">
+        <div class="cartao-header">
+            <h6>Novo Cartão de Crédito</h6>
+            <button type="button" class="btn btn-outline-danger btn-sm" onclick="removerNovoCartao('{ID}')">
+                <i class="fas fa-trash me-1"></i>Remover
+            </button>
+        </div>
+        <div class="cartao-form">
+            <input type="hidden" name="novo_cartao_ids[]" value="{ID}">
+            <div class="form-group">
+                <label class="form-label">Nome do Cartão *</label>
+                <input type="text" name="novo_cartao_nome[]" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Limite *</label>
+                <input type="number" name="novo_cartao_limite[]" class="form-control" step="0.01" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Dia do Fechamento *</label>
+                <select name="novo_cartao_fechamento[]" class="form-select" required>
+                    {% for dia in range(1, 32) %}
+                    <option value="{{ dia }}">{{ dia }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Dia do Vencimento *</label>
+                <select name="novo_cartao_vencimento[]" class="form-select" required>
+                    {% for dia in range(1, 32) %}
+                    <option value="{{ dia }}">{{ dia }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+    </div>
+</template>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let novoCartaoCounter = 0;
+
+function adicionarCartao() {
+    const container = document.getElementById('cartoes-container');
+    const template = document.getElementById('novo-cartao-template');
+    const novoCartaoId = `temp-${novoCartaoCounter++}`;
+    
+    const novoCartaoHtml = template.innerHTML.replaceAll('{ID}', novoCartaoId);
+    container.insertAdjacentHTML('beforeend', novoCartaoHtml);
+}
+
+function removerCartao(cartaoId) {
+    if (confirm('Tem certeza que deseja remover este cartão?')) {
+        const cartaoElement = document.getElementById(`cartao-${cartaoId}`);
+        cartaoElement.remove();
+    }
+}
+
+function removerNovoCartao(tempId) {
+    const cartaoElement = document.getElementById(`cartao-novo-${tempId}`);
+    cartaoElement.remove();
+}
+
+// Prevenir envio do formulário com Enter
+document.getElementById('formEditarConta').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+    }
+});
+</script>
+{% endblock %}

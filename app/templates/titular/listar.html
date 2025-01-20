@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+
+{% block title %}Titulares - Finanças Pessoais{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">Gerenciar Titulares</h5>
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalNovoTitular">
+                <i class="fas fa-plus me-2"></i>Novo Titular
+            </button>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Nome</th>
+                        <th>E-mail</th>
+                        <th>Data de Nascimento</th>
+                        <th>Contas Vinculadas</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for titular in titulares %}
+                    <tr>
+                        <td>{{ titular.nome_completo }}</td>
+                        <td>{{ titular.email }}</td>
+                        <td>{{ titular.data_nascimento.strftime('%d/%m/%Y') }}</td>
+                        <td>{{ titular.contas|length }} conta(s)</td>
+                        <td>
+                            <div class="btn-group">
+                                <button class="btn btn-sm btn-outline-primary" onclick="editarTitular({{ titular.id }})">
+                                    <i class="fas fa-edit me-1"></i>Editar
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" onclick="excluirTitular({{ titular.id }})">
+                                    <i class="fas fa-trash me-1"></i>Excluir
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Novo/Editar Titular -->
+<div class="modal fade" id="modalNovoTitular" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTitulo">Novo Titular</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formTitular">
+                    <input type="hidden" id="titular_id" name="titular_id">
+                    <div class="mb-3">
+                        <label for="nome_completo" class="form-label">Nome Completo *</label>
+                        <input type="text" class="form-control" id="nome_completo" name="nome_completo" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="email" class="form-label">E-mail *</label>
+                        <input type="email" class="form-control" id="email" name="email" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="data_nascimento" class="form-label">Data de Nascimento *</label>
+                        <input type="date" class="form-control" id="data_nascimento" name="data_nascimento" required>
+                    </div>
+                    <div class="mb-3" id="senha_group">
+                        <label for="senha" class="form-label">Senha *</label>
+                        <input type="password" class="form-control" id="senha" name="senha">
+                        <small class="text-muted">Deixe em branco para manter a senha atual ao editar</small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="salvarTitular()">Salvar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const modal = new bootstrap.Modal(document.getElementById('modalNovoTitular'));
+
+function editarTitular(id) {
+    // Limpar formulário
+    document.getElementById('formTitular').reset();
+    document.getElementById('titular_id').value = id;
+    
+    // Carregar dados do titular
+    fetch(`/titular/${id}`)
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('nome_completo').value = data.nome_completo;
+            document.getElementById('email').value = data.email;
+            document.getElementById('data_nascimento').value = data.data_nascimento;
+            document.getElementById('modalTitulo').textContent = 'Editar Titular';
+            modal.show();
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            alert('Erro ao carregar dados do titular');
+        });
+}
+
+function excluirTitular(id) {
+    if (!confirm('Tem certeza que deseja excluir este titular? Todas as contas vinculadas serão excluídas também.')) {
+        return;
+    }
+
+    fetch(`/titular/${id}`, {
+        method: 'DELETE'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.error || 'Erro ao excluir titular');
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        alert('Erro ao excluir titular');
+    });
+}
+
+function salvarTitular() {
+    const formData = new FormData(document.getElementById('formTitular'));
+    const id = formData.get('titular_id');
+    const dados = Object.fromEntries(formData.entries());
+    
+    // Remove senha se estiver vazia em edição
+    if (id && !dados.senha) {
+        delete dados.senha;
+    }
+
+    const url = id ? `/titular/${id}` : '/titular/cadastrar';
+    const method = id ? 'PUT' : 'POST';
+
+    fetch(url, {
+        method: method,
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(dados)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            modal.hide();
+            location.reload();
+        } else {
+            alert(data.error || 'Erro ao salvar titular');
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        alert('Erro ao salvar titular');
+    });
+}
+</script>
+{% endblock %}

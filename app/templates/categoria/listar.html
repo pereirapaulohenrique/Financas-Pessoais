@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+
+{% block title %}Categorias - Finanças Pessoais{% endblock %}
+
+{% block extra_css %}
+<style>
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+    }
+
+    .modal-content {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 0.5rem;
+        width: 90%;
+        max-width: 500px;
+        position: relative;
+        margin: 2rem auto;
+    }
+
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    .modal-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.5rem;
+        margin-top: 1.5rem;
+    }
+
+    .form-group {
+        margin-bottom: 1rem;
+    }
+
+    .table-actions {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: flex-end;
+    }
+
+    .btn-icon {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    @media (max-width: 768px) {
+        .table-actions {
+            flex-direction: column;
+        }
+        
+        .btn {
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Card de Cadastro -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Nova Categoria</h5>
+        </div>
+        <div class="card-body">
+            <form id="formCategoria" onsubmit="return salvarCategoria(event)">
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="form-group">
+                            <label for="nome" class="form-label">Nome da Categoria</label>
+                            <input type="text" id="nome" name="nome" class="form-control" required>
+                        </div>
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-save me-2"></i>Salvar
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Card de Listagem -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Categorias Cadastradas</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Nome</th>
+                            <th class="text-end">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for categoria in categorias %}
+                        <tr>
+                            <td>{{ categoria.nome }}</td>
+                            <td>
+                                <div class="table-actions">
+                                    <button onclick="abrirModalEditar('{{ categoria.id }}', '{{ categoria.nome }}')" 
+                                            class="btn btn-sm btn-outline-primary btn-icon">
+                                        <i class="fas fa-edit"></i>
+                                        Editar
+                                    </button>
+                                    <button onclick="excluirCategoria('{{ categoria.id }}')" 
+                                            class="btn btn-sm btn-outline-danger btn-icon">
+                                        <i class="fas fa-trash-alt"></i>
+                                        Excluir
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Edição -->
+<div id="modalEditar" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h5 class="modal-title">Editar Categoria</h5>
+            <button type="button" class="btn-close" onclick="fecharModal()"></button>
+        </div>
+        <form id="formEditar" onsubmit="return atualizarCategoria(event)">
+            <input type="hidden" id="editId">
+            <div class="form-group">
+                <label for="editNome" class="form-label">Nome da Categoria</label>
+                <input type="text" id="editNome" name="editNome" class="form-control" required>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="fecharModal()">
+                    <i class="fas fa-times me-2"></i>Cancelar
+                </button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save me-2"></i>Salvar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function salvarCategoria(event) {
+        event.preventDefault();
+        const nome = document.getElementById('nome').value;
+
+        fetch('/categoria/cadastrar', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ nome: nome })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Erro ao salvar categoria: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            alert('Erro ao salvar categoria');
+        });
+    }
+
+    function excluirCategoria(id) {
+        if (confirm('Tem certeza que deseja excluir esta categoria?')) {
+            fetch(`/categoria/excluir/${id}`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Erro ao excluir categoria: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                alert('Erro ao excluir categoria');
+            });
+        }
+    }
+
+    function abrirModalEditar(id, nome) {
+        document.getElementById('editId').value = id;
+        document.getElementById('editNome').value = nome;
+        document.getElementById('modalEditar').style.display = 'flex';
+    }
+
+    function fecharModal() {
+        document.getElementById('modalEditar').style.display = 'none';
+    }
+
+    function atualizarCategoria(event) {
+        event.preventDefault();
+        const id = document.getElementById('editId').value;
+        const nome = document.getElementById('editNome').value;
+
+        fetch(`/categoria/editar/${id}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ nome: nome })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Erro ao atualizar categoria: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            alert('Erro ao atualizar categoria');
+        });
+    }
+
+    // Fechar modal ao clicar fora
+    window.onclick = function(event) {
+        const modal = document.getElementById('modalEditar');
+        if (event.target == modal) {
+            fecharModal();
+        }
+    }
+</script>
+{% endblock %}

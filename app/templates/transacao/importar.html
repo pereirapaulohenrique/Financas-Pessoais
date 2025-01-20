@@ -1,0 +1,523 @@
+{% extends "base.html" %}
+
+{% block title %}Importar Transações{% endblock %}
+
+{% block extra_css %}
+<style>
+    .upload-area {
+        border: 2px dashed #ddd;
+        border-radius: 8px;
+        padding: 2rem;
+        text-align: center;
+        margin: 2rem 0;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .upload-area:hover {
+        border-color: var(--primary);
+        background-color: rgba(0, 123, 255, 0.05);
+    }
+
+    .upload-icon {
+        font-size: 3rem;
+        color: #6c757d;
+        margin-bottom: 1rem;
+    }
+
+    .mapping-container {
+        display: none;
+        margin-top: 2rem;
+    }
+
+    .steps-indicator {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 2rem;
+    }
+
+    .step-item {
+        display: flex;
+        align-items: center;
+        margin: 0 1rem;
+        color: #6c757d;
+    }
+
+    .step-item.active {
+        color: var(--primary);
+        font-weight: 600;
+    }
+
+    .step-number {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background-color: #e9ecef;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 0.5rem;
+    }
+
+    .step-item.active .step-number {
+        background-color: var(--primary);
+        color: white;
+    }
+
+    .toggle-container {
+        display: flex;
+        justify-content: center;
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .toggle-btn {
+        padding: 0.5rem 1.5rem;
+        border: 1px solid #ddd;
+        border-radius: 0.5rem;
+        background-color: white;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .toggle-btn.active {
+        background-color: var(--primary);
+        color: white;
+        border-color: var(--primary);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Importar Transações</h5>
+        </div>
+        <div class="card-body">
+            <!-- Indicador de Etapas -->
+            <div class="steps-indicator">
+                <div class="step-item active" id="step1-indicator">
+                    <div class="step-number">1</div>
+                    <span>Upload e Configuração</span>
+                </div>
+                <div class="step-item" id="step2-indicator">
+                    <div class="step-number">2</div>
+                    <span>Categorização</span>
+                </div>
+            </div>
+
+            <!-- Etapa 1: Upload e Configuração -->
+            <div id="step1-content">
+                <!-- Botões Toggle -->
+                <div class="toggle-container">
+                    <button type="button" class="toggle-btn active" id="btn-conta">
+                        <i class="fas fa-wallet me-2"></i>Conta Corrente
+                    </button>
+                    <button type="button" class="toggle-btn" id="btn-cartao">
+                        <i class="fas fa-credit-card me-2"></i>Cartão de Crédito
+                    </button>
+                </div>
+
+                <!-- Seleção de Conta -->
+                <div class="mb-4">
+                    <label class="form-label">Selecione a Conta</label>
+                    <select class="form-select" id="conta-select">
+                        <option value="">Selecione uma conta</option>
+                        {% for conta in contas %}
+                            <option value="{{ conta.id }}">{{ conta.nome }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Upload CSV -->
+                <div class="upload-area" id="upload-area">
+                    <input type="file" id="csv-file" accept=".csv" class="d-none">
+                    <div class="upload-icon">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                    </div>
+                    <p class="mb-0">Clique para selecionar ou arraste um arquivo CSV</p>
+                    <small class="text-muted">Arraste ou selecione seu arquivo CSV</small>
+                </div>
+
+                <!-- Mapeamento de Colunas -->
+                <div class="mapping-container" id="mapping-container">
+                    <h6 class="mb-3">Mapeamento de Colunas</h6>
+                    <div id="column-mapping"></div>
+
+                    <div class="d-flex justify-content-end mt-4">
+                        <button type="button" class="btn btn-primary" id="btn-next">
+                            Próximo <i class="fas fa-arrow-right ms-2"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Etapa 2: Categorização -->
+            <div id="step2-content" style="display: none;">
+                <div class="d-flex justify-content-end mb-3">
+                    <button type="button" class="btn btn-outline-primary" id="btn-new-category">
+                        <i class="fas fa-plus me-2"></i>Nova Categoria
+                    </button>
+                </div>
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Descrição</th>
+                                <th>Valor</th>
+                                <th>Categoria</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="categorization-tbody">
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="d-flex justify-content-between mt-4">
+                    <button type="button" class="btn btn-secondary" id="btn-back">
+                        <i class="fas fa-arrow-left me-2"></i>Voltar
+                    </button>
+                    <button type="button" class="btn btn-primary" id="btn-import">
+                        <i class="fas fa-check me-2"></i>Confirmar Importação
+                    </button>
+                </div>
+            </div>
+
+            <!-- Modal Nova Categoria -->
+            <div class="modal fade" id="modalNewCategory" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Nova Categoria</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label for="categoryName" class="form-label">Nome da Categoria</label>
+                                <input type="text" class="form-control" id="categoryName" required>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="button" class="btn btn-primary" id="btn-save-category">Salvar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.0/papaparse.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Estado global
+    const state = {
+        mode: 'conta',
+        csvData: null,
+        columnMapping: {},
+        processedData: []  // Adicionado para armazenar os dados processados
+    };
+
+    // Elementos do DOM
+    const elements = {
+        btnConta: document.getElementById('btn-conta'),
+        btnCartao: document.getElementById('btn-cartao'),
+        uploadArea: document.getElementById('upload-area'),
+        csvFile: document.getElementById('csv-file'),
+        mappingContainer: document.getElementById('mapping-container'),
+        columnMapping: document.getElementById('column-mapping'),
+        btnNext: document.getElementById('btn-next'),
+        btnBack: document.getElementById('btn-back'),
+        btnImport: document.getElementById('btn-import'),
+        btnNewCategory: document.getElementById('btn-new-category'),
+        btnSaveCategory: document.getElementById('btn-save-category'),
+        step1Content: document.getElementById('step1-content'),
+        step2Content: document.getElementById('step2-content'),
+        step1Indicator: document.getElementById('step1-indicator'),
+        step2Indicator: document.getElementById('step2-indicator'),
+        categorizationTbody: document.getElementById('categorization-tbody'),
+        modalNewCategory: new bootstrap.Modal(document.getElementById('modalNewCategory'))
+    };
+
+    // Event Listeners
+    elements.btnConta.addEventListener('click', () => toggleMode('conta'));
+    elements.btnCartao.addEventListener('click', () => toggleMode('cartao'));
+    elements.uploadArea.addEventListener('click', () => elements.csvFile.click());
+    elements.csvFile.addEventListener('change', handleFileSelect);
+    elements.btnNext.addEventListener('click', proceedToStep2);
+    elements.btnBack.addEventListener('click', backToStep1);
+    elements.btnImport.addEventListener('click', importData);
+    elements.btnNewCategory.addEventListener('click', () => elements.modalNewCategory.show());
+    elements.btnSaveCategory.addEventListener('click', saveNewCategory);
+
+    // Setup drag and drop
+    setupDragAndDrop();
+
+    function toggleMode(mode) {
+        state.mode = mode;
+        elements.btnConta.classList.toggle('active', mode === 'conta');
+        elements.btnCartao.classList.toggle('active', mode === 'cartao');
+        
+        if (state.csvData) {
+            showColumnMapping(state.csvData.data[0]);
+        }
+    }
+
+    function handleFileSelect(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        if (file.type !== 'text/csv' && !file.name.endsWith('.csv')) {
+            alert('Por favor, selecione um arquivo CSV válido.');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            Papa.parse(e.target.result, {
+                complete: function(results) {
+                    if (results.data && results.data.length > 0) {
+                        state.csvData = results;
+                        showColumnMapping(results.data[0]);
+                        elements.mappingContainer.style.display = 'block';
+                    } else {
+                        alert('O arquivo CSV está vazio ou é inválido.');
+                    }
+                },
+                error: function(error) {
+                    alert('Erro ao processar o arquivo: ' + error.message);
+                }
+            });
+        };
+        reader.readAsText(file);
+    }
+
+    function showColumnMapping(headers) {
+        const fields = state.mode === 'conta' 
+            ? ['data', 'descricao', 'valor']
+            : ['data', 'descricao', 'valor', 'parcelas'];
+
+        elements.columnMapping.innerHTML = '';
+        const row = document.createElement('div');
+        row.className = 'row g-3';
+
+        fields.forEach(field => {
+            const col = document.createElement('div');
+            col.className = 'col-md-6 col-lg-3';
+
+            const label = document.createElement('label');
+            label.className = 'form-label';
+            label.textContent = field.charAt(0).toUpperCase() + field.slice(1);
+
+            const select = document.createElement('select');
+            select.className = 'form-select';
+            select.id = `select-${field}`;
+
+            const defaultOption = document.createElement('option');
+            defaultOption.value = '';
+            defaultOption.textContent = 'Selecione a coluna';
+            select.appendChild(defaultOption);
+
+            headers.forEach((header, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = header;
+                select.appendChild(option);
+            });
+
+            select.addEventListener('change', e => updateMapping(field, e.target.value));
+
+            col.appendChild(label);
+            col.appendChild(select);
+            row.appendChild(col);
+        });
+
+        elements.columnMapping.appendChild(row);
+    }
+
+    function updateMapping(field, columnIndex) {
+        if (columnIndex === "") {
+            delete state.columnMapping[field];
+        } else {
+            state.columnMapping[field] = parseInt(columnIndex, 10);
+        }
+    }
+
+    function proceedToStep2() {
+        const contaId = document.getElementById('conta-select').value;
+        if (!contaId) {
+            alert('Por favor, selecione uma conta');
+            return;
+        }
+
+        const requiredFields = state.mode === 'conta' 
+            ? ['data', 'descricao', 'valor']
+            : ['data', 'descricao', 'valor', 'parcelas'];
+
+        const missingFields = requiredFields.filter(field => 
+            state.columnMapping[field] === undefined || state.columnMapping[field] === null
+        );
+
+        if (missingFields.length > 0) {
+            alert(`Por favor, complete o mapeamento dos campos: ${missingFields.join(', ')}`);
+            return;
+        }
+
+        const processedData = processDataForCategorization();
+        if (processedData.length === 0) {
+            alert('Nenhum dado válido para importação');
+            return;
+        }
+
+        // Removida a limitação de 20 transações
+
+        showCategorizationTable(processedData);
+        
+        elements.step1Indicator.classList.remove('active');
+        elements.step2Indicator.classList.add('active');
+        elements.step1Content.style.display = 'none';
+        elements.step2Content.style.display = 'block';
+    }
+
+    function processDataForCategorization() {
+        const processedData = [];
+        state.csvData.data.slice(1).forEach((row, index) => {
+            if (row.some(cell => cell)) {
+                const valorStr = row[state.columnMapping.valor]?.toString().replace(',', '.') || '';
+                const valor = parseFloat(valorStr);
+                
+                if (!isNaN(valor)) {
+                    processedData.push({
+                        data: row[state.columnMapping.data],
+                        descricao: row[state.columnMapping.descricao],
+                        valor: Math.abs(valor),
+                        tipo: valor < 0 ? 'Despesa' : 'Receita',
+                        parcelas: state.mode === 'cartao' ? row[state.columnMapping.parcelas] : null
+                    });
+                }
+            }
+        });
+        return processedData;
+    }
+
+    function showCategorizationTable(data) {
+        elements.categorizationTbody.innerHTML = '';
+        
+        data.forEach((row, index) => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${row.data}</td>
+                <td>${row.descricao}</td>
+                <td class="${row.tipo === 'Receita' ? 'text-success' : 'text-danger'}">
+                    R$ ${Math.abs(row.valor).toFixed(2)}
+                    <small class="text-muted d-block">${row.tipo}</small>
+                </td>
+                <td>
+                    <select class="form-select" data-row="${index}" required>
+                        <option value="">Selecione uma categoria</option>
+                        {% for categoria in categorias %}
+                            <option value="{{ categoria.id }}">{{ categoria.nome }}</option>
+                        {% endfor %}
+                    </select>
+                </td>
+            `;
+            elements.categorizationTbody.appendChild(tr);
+        });
+    }
+
+    function backToStep1() {
+        elements.step1Indicator.classList.add('active');
+        elements.step2Indicator.classList.remove('active');
+        elements.step1Content.style.display = 'block';
+        elements.step2Content.style.display = 'none';
+    }
+
+    function setupDragAndDrop() {
+        elements.uploadArea.addEventListener('dragover', e => {
+            e.preventDefault();
+            e.stopPropagation();
+            elements.uploadArea.style.borderColor = 'var(--primary)';
+        });
+
+        elements.uploadArea.addEventListener('dragleave', e => {
+            e.preventDefault();
+            e.stopPropagation();
+            elements.uploadArea.style.borderColor = '#ddd';
+        });
+
+        elements.uploadArea.addEventListener('drop', e => {
+            e.preventDefault();
+            e.stopPropagation();
+            elements.uploadArea.style.borderColor = '#ddd';
+            
+            const file = e.dataTransfer.files[0];
+            if (file) {
+                elements.csvFile.files = e.dataTransfer.files;
+                handleFileSelect({ target: elements.csvFile });
+            }
+        });
+    }
+
+    function importData() {
+        const categorias = [];
+        const selects = document.querySelectorAll('#categorization-tbody select');
+        let hasError = false;
+
+        selects.forEach((select, index) => {
+            if (!select.value) {
+                hasError = true;
+                select.classList.add('is-invalid');
+            } else {
+                categorias.push({
+                    index: index,
+                    categoria_id: select.value
+                });
+            }
+        });
+
+        if (hasError) {
+            alert('Por favor, selecione todas as categorias');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('modo', state.mode);
+        formData.append('conta_id', document.getElementById('conta-select').value);
+        formData.append('transacoes', JSON.stringify(state.csvData.data));
+        formData.append('mapeamento', JSON.stringify(state.columnMapping));
+        formData.append('categorias', JSON.stringify(categorias));
+
+        fetch('/transacao/importar', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert(result.message);
+                window.location.href = '/transacao/consultar';
+            } else {
+                let errorMessage = result.error;
+                if (result.erros && result.erros.length > 0) {
+                    errorMessage += '\n\nErros nas linhas:\n';
+                    result.erros.forEach(erro => {
+                        errorMessage += `Linha ${erro.linha}: ${erro.erro}\n`;
+                    });
+                }
+                alert(errorMessage);
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            alert('Erro ao importar transações. Tente novamente.');
+        });
+    }
+});
+</script>
+{% endblock %}

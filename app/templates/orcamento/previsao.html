@@ -1,0 +1,264 @@
+{% extends "base.html" %}
+
+{% block title %}Previsão Orçamentária - Finanças Pessoais{% endblock %}
+
+{% block extra_css %}
+<style>
+    .timeline-container {
+        position: relative;
+        padding: 20px 0;
+    }
+    
+    .timeline-item {
+        position: relative;
+        padding: 15px;
+        border-left: 2px solid var(--bs-primary);
+        margin-bottom: 15px;
+    }
+    
+    .timeline-item::before {
+        content: '';
+        position: absolute;
+        left: -8px;
+        top: 20px;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: var(--bs-primary);
+    }
+    
+    .saldo-card {
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 15px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .valor-positivo { color: var(--bs-success); }
+    .valor-negativo { color: var(--bs-danger); }
+    
+    .chart-container {
+        height: 400px;
+        margin: 20px 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="card-title mb-0">Previsão Orçamentária</h5>
+        <div>
+            <a href="{{ url_for('orcamento.index') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Voltar
+            </a>
+        </div>
+    </div>
+    <div class="card-body">
+        <!-- Filtros -->
+        <form id="filtroForm" class="mb-4">
+            <div class="row">
+                <div class="col-md-4">
+                    <label for="data_inicio" class="form-label">Data Inicial</label>
+                    <input type="date" id="data_inicio" name="data_inicio" class="form-control">
+                </div>
+                <div class="col-md-4">
+                    <label for="data_fim" class="form-label">Data Final</label>
+                    <input type="date" id="data_fim" name="data_fim" class="form-control">
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-filter me-2"></i>Atualizar
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <!-- Cards de Saldo -->
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="saldo-card bg-light">
+                    <h6 class="text-muted mb-2">Saldo Atual</h6>
+                    <h4 id="saldoAtual" class="mb-0">R$ 0,00</h4>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="saldo-card bg-light">
+                    <h6 class="text-muted mb-2">Saldo Previsto</h6>
+                    <h4 id="saldoPrevisto" class="mb-0">R$ 0,00</h4>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="saldo-card bg-light">
+                    <h6 class="text-muted mb-2">Variação</h6>
+                    <h4 id="saldoVariacao" class="mb-0">R$ 0,00</h4>
+                </div>
+            </div>
+        </div>
+
+        <!-- Gráfico -->
+        <div class="chart-container">
+            <canvas id="previsaoChart"></canvas>
+        </div>
+
+        <!-- Timeline -->
+        <div class="timeline-container mt-4">
+            <div id="timelineContent"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+let previsaoChart = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Inicializa com a data atual
+    const hoje = new Date();
+    document.getElementById('data_inicio').value = hoje.toISOString().split('T')[0];
+    
+    const dataFim = new Date();
+    dataFim.setMonth(dataFim.getMonth() + 3);
+    document.getElementById('data_fim').value = dataFim.toISOString().split('T')[0];
+    
+    carregarPrevisao();
+    
+    document.getElementById('filtroForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        carregarPrevisao();
+    });
+});
+
+function carregarPrevisao() {
+    const dataInicio = document.getElementById('data_inicio').value;
+    const dataFim = document.getElementById('data_fim').value;
+    
+    fetch(`/orcamento/api/previsao?data_inicio=${dataInicio}&data_fim=${dataFim}`)
+        .then(response => response.json())
+        .then(data => {
+            atualizarCards(data);
+            atualizarGrafico(data);
+            atualizarTimeline(data);
+        })
+        .catch(error => console.error('Erro:', error));
+}
+
+function atualizarCards(data) {
+    const ultimoRegistro = data.timeline[data.timeline.length - 1];
+    
+    document.getElementById('saldoAtual').textContent = 
+        formatarMoeda(data.saldo_inicial + ultimoRegistro.valor_real);
+    document.getElementById('saldoPrevisto').textContent = 
+        formatarMoeda(ultimoRegistro.saldo_previsto);
+    
+    const variacao = ultimoRegistro.saldo_previsto - (data.saldo_inicial + ultimoRegistro.valor_real);
+    const elementoVariacao = document.getElementById('saldoVariacao');
+    elementoVariacao.textContent = formatarMoeda(variacao);
+    elementoVariacao.className = variacao >= 0 ? 'mb-0 valor-positivo' : 'mb-0 valor-negativo';
+}
+
+function atualizarGrafico(data) {
+    const ctx = document.getElementById('previsaoChart').getContext('2d');
+    
+    if (previsaoChart) {
+        previsaoChart.destroy();
+    }
+    
+    previsaoChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: data.timeline.map(item => formatarData(item.data)),
+            datasets: [{
+                label: 'Saldo Real',
+                data: data.timeline.map(item => item.saldo_real),
+                borderColor: 'rgb(54, 162, 235)',
+                tension: 0.1
+            }, {
+                label: 'Saldo Previsto',
+                data: data.timeline.map(item => item.saldo_previsto),
+                borderColor: 'rgb(255, 99, 132)',
+                borderDash: [5, 5],
+                tension: 0.1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return 'R$ ' + value.toLocaleString('pt-BR', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2
+                            });
+                        }
+                    }
+                }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': R$ ' + 
+                                context.raw.toLocaleString('pt-BR', {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2
+                                });
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function atualizarTimeline(data) {
+    const container = document.getElementById('timelineContent');
+    container.innerHTML = '';
+    
+    data.timeline.forEach(item => {
+        const itemElement = document.createElement('div');
+        itemElement.className = 'timeline-item';
+        
+        const conteudo = `
+            <div class="d-flex justify-content-between align-items-center">
+                <strong>${formatarData(item.data)}</strong>
+                <div>
+                    <span class="badge bg-primary me-2">Real: ${formatarMoeda(item.valor_real)}</span>
+                    <span class="badge bg-info">Previsto: ${formatarMoeda(item.valor_previsto)}</span>
+                </div>
+            </div>
+            <div class="mt-2">
+                <small class="text-muted">Saldo até a data:</small>
+                <div class="d-flex justify-content-between mt-1">
+                    <span>Real: ${formatarMoeda(item.saldo_real)}</span>
+                    <span>Previsto: ${formatarMoeda(item.saldo_previsto)}</span>
+                </div>
+            </div>
+        `;
+        
+        itemElement.innerHTML = conteudo;
+        container.appendChild(itemElement);
+    });
+}
+
+function formatarMoeda(valor) {
+    return valor.toLocaleString('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
+    });
+}
+
+function formatarData(data) {
+    return new Date(data).toLocaleDateString('pt-BR');
+}
+</script>
+{% endblock %}

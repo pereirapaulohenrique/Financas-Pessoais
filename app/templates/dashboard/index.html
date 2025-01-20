@@ -1,0 +1,324 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Finanças Pessoais{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <!-- Seção de Saldos -->
+<div class="col-12 mb-4">
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Saldos</h5>
+            <span class="text-muted small">Atualizado em {{ hoje }}</span>
+        </div>
+        <div class="card-body">
+            <!-- Saldo Corrente -->
+            <div class="mb-4">
+                <h6 class="text-muted mb-3">Saldo Corrente</h6>
+                <div class="row">
+                    {% for saldo in saldos_corrente %}
+                    <div class="col-md-4 mb-3">
+                        <div class="p-3 border rounded">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="text-muted">{{ saldo.conta }}</span>
+                                <span class="h5 mb-0 {% if saldo.saldo >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                    R$ {{ "%.2f"|format(saldo.saldo) }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    <div class="col-md-4">
+                        <div class="p-3 border rounded bg-light">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="fw-bold">Total Corrente</span>
+                                <span class="h5 mb-0 {% if total_corrente >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                    R$ {{ "%.2f"|format(total_corrente) }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Saldo de Investimento -->
+            <div class="mb-4">
+                <h6 class="text-muted mb-3">Saldo de Investimento</h6>
+                <div class="row">
+                    {% for saldo in saldos_investimento %}
+                    <div class="col-md-4 mb-3">
+                        <div class="p-3 border rounded">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="text-muted">{{ saldo.conta }}</span>
+                                <span class="h5 mb-0 {% if saldo.saldo >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                    R$ {{ "%.2f"|format(saldo.saldo) }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    <div class="col-md-4">
+                        <div class="p-3 border rounded bg-light">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="fw-bold">Total Investimentos</span>
+                                <span class="h5 mb-0 {% if total_investimento >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                    R$ {{ "%.2f"|format(total_investimento) }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Saldo Total -->
+            <div class="border-top pt-3">
+                <div class="row">
+                    <div class="col-md-4 ms-auto">
+                        <div class="p-3 border rounded bg-primary text-white">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="fw-bold">Saldo Total</span>
+                                <span class="h5 mb-0">
+                                    R$ {{ "%.2f"|format(total_geral) }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+    <!-- Próximos Lançamentos -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0">Receitas a Receber</h5>
+            </div>
+            <div class="card-body">
+                {% if receitas_receber %}
+                <div class="list-group list-group-flush">
+                    {% for receita in receitas_receber %}
+                    <div class="list-group-item d-flex justify-content-between align-items-center {% if receita.is_today %}bg-light{% endif %}">
+                        <div>
+                            <div class="fw-medium">{{ receita.descricao }}</div>
+                            <small class="text-muted">
+                                {{ receita.data.strftime('%d/%m/%Y') }} - {{ receita.conta }}
+                            </small>
+                        </div>
+                        {% if receita.is_today %}
+                        <form action="{{ url_for('transacao.efetivar_transacao', transacao_id=receita.id) }}" method="POST" class="d-inline">
+                            <button type="submit" class="btn btn-sm btn-outline-success">
+                                <i class="fas fa-check me-1"></i>Efetivar
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted text-center my-4">Nenhuma receita a receber nos próximos dias.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0">Despesas a Pagar</h5>
+            </div>
+            <div class="card-body">
+                {% if despesas_pagar %}
+                <div class="list-group list-group-flush">
+                    {% for despesa in despesas_pagar %}
+                    <div class="list-group-item d-flex justify-content-between align-items-center {% if despesa.is_today %}bg-light{% endif %}">
+                        <div>
+                            <div class="fw-medium">{{ despesa.descricao }}</div>
+                            <small class="text-muted">
+                                {{ despesa.data.strftime('%d/%m/%Y') }} - {{ despesa.conta }}
+                            </small>
+                        </div>
+                        {% if despesa.is_today %}
+                        <form action="{{ url_for('transacao.efetivar_transacao', transacao_id=despesa.id) }}" method="POST" class="d-inline">
+                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                <i class="fas fa-check me-1"></i>Efetivar
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted text-center my-4">Nenhuma despesa a pagar nos próximos dias.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Gráficos -->
+<div class="row">
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0">Despesas por Categoria</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="graficoDepesas" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0">Receitas por Categoria</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="graficoReceitas" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Histórico Mensal</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="graficoMensal" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+<script>
+// Configurações comuns para os gráficos
+const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false
+};
+
+// Função para gerar cores aleatórias
+function generateColors(count) {
+    const colors = [];
+    for (let i = 0; i < count; i++) {
+        colors.push(`hsl(${(i * 360) / count}, 70%, 50%)`);
+    }
+    return colors;
+}
+
+// Gráfico de Despesas
+fetch('/grafico_despesas')
+    .then(response => response.json())
+    .then(data => {
+        const ctx = document.getElementById('graficoDepesas').getContext('2d');
+        const labels = Object.keys(data);
+        const values = Object.values(data);
+        const colors = generateColors(labels.length);
+
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: values,
+                    backgroundColor: colors
+                }]
+            },
+            options: {
+                ...chartOptions,
+                plugins: {
+                    legend: {
+                        position: 'right'
+                    }
+                }
+            }
+        });
+    });
+
+// Gráfico de Receitas
+fetch('/grafico_receitas')
+    .then(response => response.json())
+    .then(data => {
+        const ctx = document.getElementById('graficoReceitas').getContext('2d');
+        const labels = Object.keys(data);
+        const values = Object.values(data);
+        const colors = generateColors(labels.length);
+
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: values,
+                    backgroundColor: colors
+                }]
+            },
+            options: {
+                ...chartOptions,
+                plugins: {
+                    legend: {
+                        position: 'right'
+                    }
+                }
+            }
+        });
+    });
+
+// Gráfico Mensal
+fetch('/grafico_mensal')
+    .then(response => response.json())
+    .then(data => {
+        const ctx = document.getElementById('graficoMensal').getContext('2d');
+        const labels = Object.keys(data);
+        const receitas = labels.map(label => data[label].receitas);
+        const despesas = labels.map(label => data[label].despesas);
+
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Receitas',
+                        data: receitas,
+                        backgroundColor: 'rgba(39, 174, 96, 0.5)',
+                        borderColor: 'rgb(39, 174, 96)',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Despesas',
+                        data: despesas,
+                        backgroundColor: 'rgba(231, 76, 60, 0.5)',
+                        borderColor: 'rgb(231, 76, 60)',
+                        borderWidth: 1
+                    }
+                ]
+            },
+            options: {
+                ...chartOptions,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return 'R$ ' + value.toFixed(2);
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        position: 'top'
+                    }
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

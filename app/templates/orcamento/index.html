@@ -1,0 +1,548 @@
+{% extends "base.html" %}
+
+{% block title %}Orçamentos - Finanças Pessoais{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="card-title mb-0">Orçamentos</h5>
+        <div>
+            <a href="{{ url_for('orcamento.previsao') }}" class="btn btn-info me-2">
+                <i class="fas fa-chart-line me-2"></i>Previsão Orçamentária
+            </a>
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalOrcamento">
+                <i class="fas fa-plus me-2"></i>Novo Orçamento
+            </button>
+        </div>
+    </div>
+    <div class="card-body">
+        <!-- Cards de Estatísticas -->
+        <div class="row mb-4">
+            <div class="col-md-2">
+                <div class="card bg-light">
+                    <div class="card-body">
+                        <h6 class="card-subtitle mb-2 text-muted">Orçamento Receitas</h6>
+                        <h4 class="card-title mb-0">R$ {{ "{:,.2f}".format(stats.orcamento_receitas) }}</h4>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card bg-light">
+                    <div class="card-body">
+                        <h6 class="card-subtitle mb-2 text-muted">Orçamento Despesas</h6>
+                        <h4 class="card-title mb-0">R$ {{ "{:,.2f}".format(stats.orcamento_despesas) }}</h4>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card bg-light">
+                    <div class="card-body">
+                        <h6 class="card-subtitle mb-2 text-muted">Total Recebido</h6>
+                        <h4 class="card-title mb-0">R$ {{ "{:,.2f}".format(stats.total_recebido) }}</h4>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card bg-light">
+                    <div class="card-body">
+                        <h6 class="card-subtitle mb-2 text-muted">Total Gasto</h6>
+                        <h4 class="card-title mb-0">R$ {{ "{:,.2f}".format(stats.total_gasto) }}</h4>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card bg-light">
+                    <div class="card-body">
+                        <h6 class="card-subtitle mb-2 text-muted">Gastos no Limite</h6>
+                        <h4 class="card-title mb-0">{{ stats.categorias_limite }}</h4>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card bg-light">
+                    <div class="card-body">
+                        <h6 class="card-subtitle mb-2 text-muted">Economia Potencial</h6>
+                        <h4 class="card-title mb-0">R$ {{ "{:,.2f}".format(stats.economia_potencial) }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-body">
+                <form id="filtroForm" class="row g-3">
+                    <div class="col-md-4">
+                        <label for="data_inicio_filtro" class="form-label">Data Início</label>
+                        <input type="date" class="form-control" id="data_inicio_filtro" name="data_inicio_filtro">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="data_fim_filtro" class="form-label">Data Fim</label>
+                        <input type="date" class="form-control" id="data_fim_filtro" name="data_fim_filtro">
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary">Filtrar</button>
+                        <button type="button" class="btn btn-secondary ms-2" onclick="limparFiltros()">Limpar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Tabela de Orçamentos -->
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Categoria</th>
+                        <th>Tipo</th>
+                        <th>Valor Orçado</th>
+                        <th>Valor Realizado</th>
+                        <th>Valor Restante</th>
+                        <th>% Realizado</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for orcamento in orcamentos %}
+                    <tr>
+                        <td>{{ orcamento.categoria }}</td>
+                        <td>{{ orcamento.tipo }}</td>
+                        <td class="text-end">R$ {{ "{:,.2f}".format(orcamento.valor_orcado) }}</td>
+                        <td class="text-end">R$ {{ "{:,.2f}".format(orcamento.valor_realizado) }}</td>
+                        <td class="text-end">R$ {{ "{:,.2f}".format(orcamento.valor_restante) }}</td>
+                        <td>
+                            <div class="progress">
+                                <div class="progress-bar {% if orcamento.percentual >= 90 %}bg-danger{% elif orcamento.percentual >= 75 %}bg-warning{% else %}bg-success{% endif %}"
+                                     role="progressbar"
+                                     style="width: {{ orcamento.percentual }}%"
+                                     aria-valuenow="{{ orcamento.percentual }}"
+                                     aria-valuemin="0"
+                                     aria-valuemax="100">{{ orcamento.percentual }}%</div>
+                            </div>
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-primary me-1" onclick="editarOrcamento({{ orcamento.id }})">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger" onclick="excluirOrcamento({{ orcamento.id }})">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Cadastro/Edição -->
+<div class="modal fade" id="modalOrcamento" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Orçamento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formOrcamento">
+                    <input type="hidden" id="orcamento_id" name="id">
+                    <div class="mb-3">
+                        <label for="tipo" class="form-label">Tipo</label>
+                        <select class="form-select" id="tipo" name="tipo" required>
+                            <option value="">Selecione...</option>
+                            <option value="Receita">Receita</option>
+                            <option value="Despesa">Despesa</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="categoria" class="form-label">Categoria</label>
+                        <select class="form-select" id="categoria" name="categoria" required>
+                            <option value="">Selecione...</option>
+                            {% for categoria in categorias %}
+                            <option value="{{ categoria.id }}">{{ categoria.nome }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="data_inicio" class="form-label">Data Início</label>
+                                <input type="date" class="form-control" id="data_inicio" name="data_inicio" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="data_fim" class="form-label">Data Fim</label>
+                                <input type="date" class="form-control" id="data_fim" name="data_fim" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Seção de Lançamentos -->
+                    <div class="mb-3">
+                        <label class="form-label">Lançamentos</label>
+                        <div id="lancamentosContainer">
+                            <!-- Os lançamentos serão adicionados aqui dinamicamente -->
+                        </div>
+                        <button type="button" class="btn btn-secondary mt-2" onclick="adicionarLancamento()">
+                            <i class="fas fa-plus me-2"></i>Adicionar Lançamento
+                        </button>
+                    </div>
+                    
+                    <!-- Dentro do modal de orçamento -->
+                    <template id="lancamentoTemplate">
+                        <div class="lancamento-item border rounded p-3 mb-2">
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <label class="form-label">Data Inicial</label>
+                                    <input type="date" class="form-control lancamento-data-inicial" required>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Tipo Repetição</label>
+                                    <select class="form-select lancamento-tipo-repeticao" required>
+                                        <option value="diario">Diário</option>
+                                        <option value="semanal">Semanal</option>
+                                        <option value="mensal">Mensal</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Intervalo</label>
+                                    <input type="number" class="form-control lancamento-intervalo" min="1" value="1" required>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Valor</label>
+                                    <input type="number" class="form-control lancamento-valor" step="0.01" required>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Descrição</label>
+                                    <input type="text" class="form-control lancamento-descricao">
+                                </div>
+                                <div class="col-md-1 d-flex align-items-end">
+                                    <button type="button" class="btn btn-danger btn-sm" onclick="removerLancamento(this)">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <!-- Campos condicionais baseados no tipo de repetição -->
+                            <div class="row mt-2 lancamento-campos-adicionais" style="display: none;">
+                                <div class="col-md-3 campo-dia-fixo" style="display: none;">
+                                    <label class="form-label">Dia do Mês</label>
+                                    <input type="number" class="form-control lancamento-dia-fixo" min="1" max="31">
+                                </div>
+                                <div class="col-md-3 campo-dia-semana" style="display: none;">
+                                    <label class="form-label">Dia da Semana</label>
+                                    <select class="form-select lancamento-dia-semana">
+                                        <option value="0">Domingo</option>
+                                        <option value="1">Segunda</option>
+                                        <option value="2">Terça</option>
+                                        <option value="3">Quarta</option>
+                                        <option value="4">Quinta</option>
+                                        <option value="5">Sexta</option>
+                                        <option value="6">Sábado</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="salvarOrcamento()">Salvar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('filtroForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const data_inicio = document.getElementById('data_inicio_filtro').value;
+    const data_fim = document.getElementById('data_fim_filtro').value;
+    
+    window.location.href = `/orcamento/?data_inicio=${data_inicio}&data_fim=${data_fim}`;
+});
+
+function limparFiltros() {
+    document.getElementById('data_inicio_filtro').value = '';
+    document.getElementById('data_fim_filtro').value = '';
+    window.location.href = '/orcamento/';
+}
+
+// Preencher filtros com valores da URL se existirem
+window.addEventListener('load', function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('data_inicio')) {
+        document.getElementById('data_inicio_filtro').value = urlParams.get('data_inicio');
+    }
+    if (urlParams.has('data_fim')) {
+        document.getElementById('data_fim_filtro').value = urlParams.get('data_fim');
+    }
+});
+// Funções JavaScript para manipular o orçamento
+function editarOrcamento(id) {
+    fetch(`/orcamento/${id}`)
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('orcamento_id').value = data.id;
+            document.getElementById('tipo').value = data.tipo;
+            document.getElementById('categoria').value = data.categoria_id;
+            document.getElementById('data_inicio').value = data.data_inicio;
+            document.getElementById('data_fim').value = data.data_fim;
+            
+            // Limpa e adiciona os lançamentos
+            document.getElementById('lancamentosContainer').innerHTML = '';
+            data.lancamentos.forEach(lancamento => {
+                adicionarLancamento(lancamento);
+            });
+            
+            new bootstrap.Modal(document.getElementById('modalOrcamento')).show();
+        });
+}
+
+function adicionarLancamento(dados = null) {
+    const template = document.getElementById('lancamentoTemplate');
+    const container = document.getElementById('lancamentosContainer');
+    const clone = template.content.cloneNode(true);
+    
+    if (dados) {
+        clone.querySelector('.lancamento-data-inicial').value = dados.data_inicial;
+        clone.querySelector('.lancamento-tipo-repeticao').value = dados.tipo_repeticao;
+        clone.querySelector('.lancamento-intervalo').value = dados.intervalo_repeticao;
+        clone.querySelector('.lancamento-valor').value = dados.valor;
+        clone.querySelector('.lancamento-descricao').value = dados.descricao;
+        
+        // Configurar campos específicos baseado no tipo de repetição
+        if (dados.tipo_repeticao === 'mensal' && dados.dia_fixo) {
+            clone.querySelector('.lancamento-dia-fixo').value = dados.dia_fixo;
+        }
+        if (dados.tipo_repeticao === 'semanal' && dados.dia_semana !== null) {
+            clone.querySelector('.lancamento-dia-semana').value = dados.dia_semana;
+        }
+    }
+    
+    container.appendChild(clone);
+    configurarCamposLancamento();
+}
+
+function removerLancamento(button) {
+    button.closest('.lancamento-item').remove();
+}
+
+async function salvarOrcamento() {
+    try {
+        const form = document.getElementById('formOrcamento');
+        const formData = new FormData(form);
+
+        // Validações básicas
+        const tipo = form.querySelector('#tipo').value;
+        const categoria = form.querySelector('#categoria').value;
+        const dataInicio = form.querySelector('#data_inicio').value;
+        const dataFim = form.querySelector('#data_fim').value;
+
+        if (!tipo || !categoria || !dataInicio || !dataFim) {
+            alert('Todos os campos são obrigatórios');
+            return;
+        }
+
+        // Coleta os dados dos lançamentos
+        const lancamentos = [];
+        document.querySelectorAll('.lancamento-item').forEach(item => {
+            if (!item.querySelector('.lancamento-data-inicial').value || 
+                !item.querySelector('.lancamento-valor').value) {
+                return; // Pula lançamentos incompletos
+            }
+
+            const lancamento = {
+                data_inicial: item.querySelector('.lancamento-data-inicial').value,
+                tipo_repeticao: item.querySelector('.lancamento-tipo-repeticao').value,
+                intervalo_repeticao: parseInt(item.querySelector('.lancamento-intervalo').value) || 1,
+                valor: parseFloat(item.querySelector('.lancamento-valor').value),
+                descricao: item.querySelector('.lancamento-descricao').value || ''
+            };
+
+            // Adiciona campos específicos baseado no tipo de repetição
+            if (lancamento.tipo_repeticao === 'mensal') {
+                const diaFixo = item.querySelector('.lancamento-dia-fixo');
+                if (diaFixo && diaFixo.value) {
+                    lancamento.dia_fixo = parseInt(diaFixo.value);
+                }
+            }
+            if (lancamento.tipo_repeticao === 'semanal') {
+                const diaSemana = item.querySelector('.lancamento-dia-semana');
+                if (diaSemana && diaSemana.value !== '') {
+                    lancamento.dia_semana = parseInt(diaSemana.value);
+                }
+            }
+
+            lancamentos.push(lancamento);
+        });
+
+        if (lancamentos.length === 0) {
+            alert('Adicione pelo menos um lançamento');
+            return;
+        }
+
+        formData.append('lancamentos', JSON.stringify(lancamentos));
+
+        // Log dos dados antes do envio
+        console.log('Preparando para enviar dados:', {
+            tipo,
+            categoria,
+            data_inicio: dataInicio,
+            data_fim: dataFim,
+            lancamentos: lancamentos
+        });
+
+        // Adiciona um timeout mais longo para a requisição
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 60000); // Aumentado para 60 segundos
+
+        const response = await fetch('/orcamento/salvar', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            signal: controller.signal,
+            credentials: 'same-origin'
+        });
+
+        clearTimeout(timeoutId);
+
+        // Log da resposta
+        console.log('Status da resposta:', response.status);
+        console.log('Headers da resposta:', Object.fromEntries(response.headers.entries()));
+
+        const responseText = await response.text();
+        console.log('Texto da resposta:', responseText);
+
+        let data;
+        try {
+            data = JSON.parse(responseText);
+        } catch (e) {
+            console.error('Erro ao parsear resposta JSON:', e);
+            throw new Error('Resposta inválida do servidor');
+        }
+
+        if (!response.ok) {
+            throw new Error(`Erro HTTP ${response.status}: ${data.error || responseText}`);
+        }
+
+        if (data.success) {
+            // Tenta fechar o modal antes do reload
+            try {
+                const modal = bootstrap.Modal.getInstance(document.getElementById('modalOrcamento'));
+                if (modal) {
+                    modal.hide();
+                }
+            } catch (e) {
+                console.error('Erro ao fechar modal:', e);
+            }
+
+            // Pequeno delay antes do reload para garantir que o modal fechou
+            setTimeout(() => {
+                window.location.reload();
+            }, 100);
+        } else {
+            throw new Error(data.error || 'Erro desconhecido ao salvar orçamento');
+        }
+
+    } catch (error) {
+        console.error('Erro detalhado ao salvar orçamento:', error);
+        if (error.name === 'AbortError') {
+            alert('A requisição excedeu o tempo limite. Por favor, tente novamente.');
+        } else {
+            alert(`Erro ao salvar orçamento: ${error.message}`);
+        }
+        
+        // Log adicional de informações de debug
+        console.log('Informações adicionais de debug:');
+        console.log('- URL:', window.location.href);
+        console.log('- User Agent:', navigator.userAgent);
+        console.log('- Timestamp:', new Date().toISOString());
+    }
+}
+
+function configurarCamposLancamento() {
+    document.querySelectorAll('.lancamento-tipo-repeticao').forEach(select => {
+        select.addEventListener('change', function() {
+            const lancamentoItem = this.closest('.lancamento-item');
+            const camposAdicionais = lancamentoItem.querySelector('.lancamento-campos-adicionais');
+            const campoDiaFixo = lancamentoItem.querySelector('.campo-dia-fixo');
+            const campoDiaSemana = lancamentoItem.querySelector('.campo-dia-semana');
+
+            // Reset campos
+            camposAdicionais.style.display = 'none';
+            campoDiaFixo.style.display = 'none';
+            campoDiaSemana.style.display = 'none';
+
+            // Mostra campos relevantes baseado no tipo de repetição
+            switch(this.value) {
+                case 'mensal':
+                    camposAdicionais.style.display = 'flex';
+                    campoDiaFixo.style.display = 'block';
+                    break;
+                case 'semanal':
+                    camposAdicionais.style.display = 'flex';
+                    campoDiaSemana.style.display = 'block';
+                    break;
+            }
+        });
+    });
+}
+
+function adicionarLancamento(dados = null) {
+    const template = document.getElementById('lancamentoTemplate');
+    const container = document.getElementById('lancamentosContainer');
+    const clone = template.content.cloneNode(true);
+    
+    if (dados) {
+        clone.querySelector('.lancamento-data-inicial').value = dados.data_inicial;
+        clone.querySelector('.lancamento-tipo-repeticao').value = dados.tipo_repeticao;
+        clone.querySelector('.lancamento-intervalo').value = dados.intervalo_repeticao;
+        clone.querySelector('.lancamento-valor').value = dados.valor;
+        clone.querySelector('.lancamento-descricao').value = dados.descricao;
+        
+        // Configurar campos específicos baseado no tipo de repetição
+        if (dados.tipo_repeticao === 'mensal' && dados.dia_fixo) {
+            clone.querySelector('.lancamento-dia-fixo').value = dados.dia_fixo;
+        }
+        if (dados.tipo_repeticao === 'semanal' && dados.dia_semana !== null) {
+            clone.querySelector('.lancamento-dia-semana').value = dados.dia_semana;
+        }
+    }
+    
+    container.appendChild(clone);
+    configurarCamposLancamento();
+}
+
+function excluirOrcamento(id) {
+    if (confirm('Tem certeza que deseja excluir este orçamento?')) {
+        fetch(`/orcamento/${id}/excluir`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Recarrega a página para atualizar a lista
+                location.reload();
+            } else {
+                alert('Erro ao excluir orçamento: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            alert('Erro ao excluir orçamento');
+        });
+    }
+}
+</script>
+{% endblock %}

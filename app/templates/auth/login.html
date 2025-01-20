@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        /* Estilo Geral */
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #ecf0f1, #bdc3c7);
+        }
+
+        /* Caixa de Login */
+        .login-container {
+            background-color: #ffffff;
+            border-radius: 15px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+            width: 100%;
+            max-width: 400px;
+            padding: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        /* Título */
+        .login-container h1 {
+            font-size: 24px;
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        /* Formulário */
+        .login-container form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        /* Campos */
+        .login-container input {
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        .login-container input:focus {
+            border-color: #1abc9c;
+            box-shadow: 0 0 8px rgba(26, 188, 156, 0.3);
+            outline: none;
+        }
+
+        .login-container input::placeholder {
+            color: #95a5a6;
+        }
+
+        /* Botão */
+        .login-container button {
+            padding: 12px;
+            font-size: 16px;
+            border: none;
+            border-radius: 8px;
+            background-color: #1abc9c;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s;
+        }
+
+        .login-container button:hover {
+            background-color: #16a085;
+            transform: scale(1.02);
+        }
+
+        .login-container button:active {
+            transform: scale(0.98);
+        }
+
+        /* Link de Cadastro */
+        .login-container a {
+            color: #1abc9c;
+            text-decoration: none;
+            text-align: center;
+            transition: color 0.3s;
+        }
+
+        .login-container a:hover {
+            color: #16a085;
+            text-decoration: underline;
+        }
+
+        /* Mensagens de Erro/Sucesso */
+        .login-container ul {
+            list-style: none;
+            padding: 0;
+            margin: 0 0 20px 0;
+        }
+
+        .login-container li {
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .login-container li[style*="color: red"] {
+            background-color: #ffebee;
+            border: 1px solid #ffcdd2;
+        }
+
+        .login-container li[style*="color: green"] {
+            background-color: #e8f5e9;
+            border: 1px solid #c8e6c9;
+        }
+
+        /* Responsivo */
+        @media (max-width: 480px) {
+            .login-container {
+                padding: 20px;
+                margin: 10px;
+            }
+
+            .login-container h1 {
+                font-size: 20px;
+            }
+
+            .login-container input, .login-container button {
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <img src="logo.png" alt="Logo" style="width: 80px; margin: 0 auto 20px; display: block;">
+        <h1>Login</h1>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <ul>
+            {% for category, message in messages %}
+                <li style="color: {% if category == 'danger' %}red{% elif category == 'success' %}green{% else %}black{% endif %};">
+                    {{ message }}
+                </li>
+            {% endfor %}
+            </ul>
+        {% endif %}
+        {% endwith %}
+        <form method="POST">
+            <input type="email" name="email" placeholder="E-mail" required>
+            <input type="password" name="senha" placeholder="Senha" required>
+            <button type="submit">Entrar</button>
+        </form>
+        <p>Não tem uma conta? <a href="/cadastrar_usuario">Cadastre-se aqui</a></p>
+    </div>
+</body>
+</html>

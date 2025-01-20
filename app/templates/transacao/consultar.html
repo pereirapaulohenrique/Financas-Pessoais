@@ -1,0 +1,323 @@
+{% extends "base.html" %}
+
+{% block title %}Consultar Transações{% endblock %}
+
+{% block extra_css %}
+<style>
+    .filter-group {
+        min-width: 200px;
+    }
+
+    .fatura-icon {
+        transition: transform 0.2s;
+    }
+    
+    .fatura-icon.expanded {
+        transform: rotate(90deg);
+    }
+    
+    .fatura-row {
+        background-color: #f8f9fa;
+    }
+    
+    .fatura-row td {
+        border-left: 3px solid #dee2e6;
+        font-size: 0.95em;
+    }
+    
+    .fatura-row:hover {
+        background-color: #f1f3f5;
+    }
+
+    .actions-group {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .valor-positivo {
+        color: var(--success-color);
+    }
+
+    .valor-negativo {
+        color: var(--danger-color);
+    }
+
+    .badge-status {
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.25rem;
+        font-size: 0.875rem;
+    }
+
+    .badge-aberto {
+        background-color: var(--warning-color);
+        color: white;
+    }
+
+    .badge-efetivado {
+        background-color: var(--success-color);
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Card de Filtros -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="GET" action="{{ url_for('transacao.consultar') }}">
+            <div class="row g-3">
+                <div class="col-md-4 col-lg-2">
+                    <label for="data_inicio" class="form-label">Data Início</label>
+                    <input type="date" id="data_inicio" name="data_inicio" class="form-control" value="{{ filtros['data_inicio'] }}">
+                </div>
+                <div class="col-md-4 col-lg-2">
+                    <label for="data_fim" class="form-label">Data Fim</label>
+                    <input type="date" id="data_fim" name="data_fim" class="form-control" value="{{ filtros['data_fim'] }}">
+                </div>
+                <div class="col-md-4 col-lg-2">
+                    <label for="tipo" class="form-label">Tipo</label>
+                    <select id="tipo" name="tipo" class="form-select">
+                        <option value="">Todos</option>
+                        <option value="Receita" {% if filtros['tipo'] == "Receita" %}selected{% endif %}>Receita</option>
+                        <option value="Despesa" {% if filtros['tipo'] == "Despesa" %}selected{% endif %}>Despesa</option>
+                    </select>
+                </div>
+                <div class="col-md-4 col-lg-2">
+                    <label for="conta" class="form-label">Conta</label>
+                    <select id="conta" name="conta" class="form-select">
+                        <option value="">Todas</option>
+                        {% for conta in contas %}
+                            <option value="{{ conta.id }}" {% if filtros['conta'] == conta.id|string %}selected{% endif %}>{{ conta.nome }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4 col-lg-2">
+                    <label for="categoria" class="form-label">Categoria</label>
+                    <select id="categoria" name="categoria" class="form-select">
+                        <option value="">Todas</option>
+                        {% for categoria in categorias %}
+                            <option value="{{ categoria.id }}" {% if filtros['categoria'] == categoria.id|string %}selected{% endif %}>{{ categoria.nome }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4 col-lg-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search me-2"></i>Filtrar
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Card de Transações -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">Transações</h5>
+    </div>
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('transacao.excluir_multiplas') }}" class="table-responsive">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>
+                                <input type="checkbox" id="selectAll" onclick="toggleAll(this)">
+                            </th>
+                            <th>Data</th>
+                            <th>Tipo</th>
+                            <th>Conta</th>
+                            <th>Categoria</th>
+                            <th>Descrição</th>
+                            <th>Valor</th>
+                            <th>Status</th>
+                            <th>Ignorar</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if not transacoes_por_cartao and not transacoes_sem_cartao %}
+                            <tr>
+                                <td colspan="10" class="text-center text-muted">
+                                    Nenhuma transação encontrada.
+                                </td>
+                            </tr>
+                        {% else %}
+                            {% for chave, dados in transacoes_por_cartao.items() %}
+                                <tr>
+                                    <td><input type="checkbox" name="selecionados" value="fatura_{{ chave[0] }}"></td>
+                                    <td>
+                                        <button type="button" class="btn btn-link text-dark p-0 me-2" onclick="toggleFatura('{{ chave[0] }}_{{ dados.mes }}_{{ dados.ano }}')">
+                                            <i class="fas fa-chevron-right fatura-icon me-2"></i>
+                                        </button>
+                                        {{ dados.data_vencimento.strftime('%d/%m/%Y') }}
+                                    </td>
+                                    <td>Despesa</td>
+                                    <td>{{ dados.conta_nome }}</td>
+                                    <td>Cartão de Crédito</td>
+                                    <td>{{ dados.cartao_nome }} - Fatura {{ dados.mes }}/{{ dados.ano }}</td>
+                                    <td class="valor-negativo">
+                                        R$ {{ '{:,.2f}'.format(dados.total_fatura) }}
+                                    </td>
+                                    <td>
+                                        <span class="badge badge-status badge-{{ dados.status }}">
+                                            {{ dados.status }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="form-check">
+                                            <input type="checkbox" class="form-check-input toggle-ignore" 
+                                                data-id="fatura_{{ chave[0] }}" 
+                                                {% if dados.ignored %}checked{% endif %}
+                                                onchange="toggleIgnoreTransaction(this)">
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="actions-group">
+                                            {% if dados.status == "aberto" %}
+                                            <form method="POST" action="{{ url_for('transacao.efetivar', transacao_id=chave[0]) }}" style="display: inline;">
+                                                <input type="hidden" name="tipo" value="fatura">
+                                                <input type="hidden" name="data_fatura" value="{{ dados.data_vencimento.strftime('%Y-%m-%d') }}">
+                                                <button type="submit" class="btn btn-sm btn-success">
+                                                    <i class="fas fa-check me-1"></i>Efetivar
+                                                </button>
+                                            </form>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% for transacao in dados.transacoes %}
+                                <tr class="fatura-row fatura-{{ chave[0] }}_{{ dados.mes }}_{{ dados.ano }}" style="display: none;">
+                                    <td><input type="checkbox" name="selecionados" value="{{ transacao.id }}"></td>
+                                    <td class="ps-5">{{ transacao.data.strftime('%d/%m/%Y') }}</td>
+                                    <td>{{ transacao.tipo }}</td>
+                                    <td>{{ transacao.conta.nome }}</td>
+                                    <td>{{ transacao.categoria.nome }}</td>
+                                    <td>{{ transacao.descricao }}</td>
+                                    <td class="{% if transacao.tipo == 'Receita' %}valor-positivo{% else %}valor-negativo{% endif %}">
+                                        R$ {{ '{:,.2f}'.format(transacao.valor) }}
+                                    </td>
+                                    <td>
+                                        <span class="badge badge-status badge-{{ transacao.status }}">
+                                            {{ transacao.status }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="form-check">
+                                            <input type="checkbox" class="form-check-input toggle-ignore" 
+                                                data-id="{{ transacao.id }}" 
+                                                {% if transacao.ignored %}checked{% endif %}
+                                                onchange="toggleIgnoreTransaction(this)">
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="actions-group">
+                                            <a href="{{ url_for('transacao.editar', transacao_id=transacao.id) }}" class="btn btn-sm btn-primary">
+                                                <i class="fas fa-edit me-1"></i>Editar
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% endfor %}
+                            {% for transacao in transacoes_sem_cartao %}
+                            <tr>
+                                <td><input type="checkbox" name="selecionados" value="{{ transacao.id }}"></td>
+                                <td>{{ transacao.data.strftime('%d/%m/%Y') }}</td>
+                                <td>{{ transacao.tipo }}</td>
+                                <td>{{ transacao.conta.nome }}</td>
+                                <td>{{ transacao.categoria.nome }}</td>
+                                <td>{{ transacao.descricao }}</td>
+                                <td class="{% if transacao.tipo == 'Receita' %}valor-positivo{% else %}valor-negativo{% endif %}">
+                                    R$ {{ '{:,.2f}'.format(transacao.valor) }}
+                                </td>
+                                <td>
+                                    <span class="badge badge-status badge-{{ transacao.status }}">
+                                        {{ transacao.status }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input toggle-ignore" 
+                                            data-id="{{ transacao.id }}" 
+                                            {% if transacao.ignored %}checked{% endif %}
+                                            onchange="toggleIgnoreTransaction(this)">
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="actions-group">
+                                        {% if transacao.status == "aberto" %}
+                                        <form method="POST" action="{{ url_for('transacao.efetivar', transacao_id=transacao.id) }}" style="display: inline;">
+                                            <button type="submit" class="btn btn-sm btn-success">
+                                                <i class="fas fa-check me-1"></i>Efetivar
+                                            </button>
+                                        </form>
+                                        {% endif %}
+                                        <a href="{{ url_for('transacao.editar', transacao_id=transacao.id) }}" class="btn btn-sm btn-primary">
+                                            <i class="fas fa-edit me-1"></i>Editar
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+            {% if transacoes_por_cartao or transacoes_sem_cartao %}
+            <button type="submit" class="btn btn-danger mt-3">
+                <i class="fas fa-trash-alt me-2"></i>Excluir Selecionadas
+            </button>
+            {% endif %}
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function toggleAll(source) {
+        const checkboxes = document.querySelectorAll('input[name="selecionados"]');
+        for (let i = 0; i < checkboxes.length; i++) {
+            checkboxes[i].checked = source.checked;
+        }
+    }
+
+    function toggleFatura(faturaId) {
+        const transacoes = document.querySelectorAll(`.fatura-${faturaId}`);
+        const icon = event.currentTarget.querySelector('.fatura-icon');
+        const isCollapsed = transacoes[0].style.display === 'none';
+
+        transacoes.forEach(transacao => {
+            transacao.style.display = isCollapsed ? 'table-row' : 'none';
+        });
+
+        icon.classList.toggle('expanded');
+    }
+
+    function toggleIgnoreTransaction(checkbox) {
+        const transacaoId = checkbox.dataset.id;
+        const ignored = checkbox.checked;
+
+        fetch(`/transacao/${transacaoId}/toggle_ignore`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ ignored: ignored })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (!data.success) {
+                checkbox.checked = !checkbox.checked;  // Reverte a mudança
+                alert(data.error || 'Erro ao atualizar transação');
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            checkbox.checked = !checkbox.checked;  // Reverte a mudança
+            alert('Erro ao atualizar transação');
+        });
+    }
+</script>
+{% endblock %}

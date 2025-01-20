@@ -1,0 +1,404 @@
+{% extends "base.html" %}
+
+{% block title %}Cadastro em Massa de Transações{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/handsontable@13.1.0/dist/handsontable.full.min.css" rel="stylesheet">
+<style>
+    .toggle-container {
+        display: flex;
+        justify-content: center;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .toggle-btn {
+        padding: 0.75rem 1.5rem;
+        border-radius: 0.5rem;
+        border: 1px solid #ddd;
+        background-color: #fff;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .toggle-btn.active {
+        background-color: var(--primary);
+        color: white;
+        border-color: var(--primary);
+    }
+
+    .table-container {
+        margin: 20px 0;
+        padding: 20px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        overflow: visible;
+    }
+
+    #hot-container {
+        /* Você pode deixar o min-height ou height fixo aqui */
+        min-width: 800px;
+        width: 100%;
+        min-height: 400px;
+        height: 400px; 
+        position: relative;
+        margin: 20px 0;
+    }
+    
+    /* Retire ou comente a posição absoluta da tabela */
+    #hot-container .handsontable {
+        /* position: absolute; 
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0; */
+    }
+
+    .handsontable {
+        font-size: 14px;
+        background: white !important;
+    }
+
+    .action-bar {
+        display: flex;
+        gap: 1rem;
+        margin: 1rem 0;
+    }
+
+    .info-box {
+        background-color: #f8f9fa;
+        border-left: 4px solid var(--primary);
+        padding: 1rem;
+        margin: 1rem 0;
+        border-radius: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Cadastro em Massa de Transações</h5>
+        </div>
+        <div class="card-body">
+            <!-- Botões Toggle -->
+            <div class="toggle-container">
+                <button class="toggle-btn active" id="btn-conta" onclick="toggleMode('conta')">
+                    <i class="fas fa-wallet me-2"></i>Conta Corrente
+                </button>
+                <button class="toggle-btn" id="btn-cartao" onclick="toggleMode('cartao')">
+                    <i class="fas fa-credit-card me-2"></i>Cartão de Crédito
+                </button>
+            </div>
+
+            <!-- Info Box -->
+            <div class="info-box">
+                <i class="fas fa-info-circle me-2"></i>
+                <span id="info-text">
+                    Preencha: Data, Tipo (Receita/Despesa), Conta, Categoria, Descrição, Valor e Lançamento Futuro
+                </span>
+            </div>
+
+            <!-- Action Bar -->
+            <div class="action-bar">
+                <div>
+                    <button class="btn btn-outline-secondary" onclick="clearData()">
+                        <i class="fas fa-eraser me-2"></i>Limpar Dados
+                    </button>
+                    <button class="btn btn-outline-primary" onclick="openCategoryModal()">
+                        <i class="fas fa-plus me-2"></i>Nova Categoria
+                    </button>
+                </div>
+                <button class="btn btn-primary" onclick="saveTransactions()">
+                    <i class="fas fa-save me-2"></i>Salvar Transações
+                </button>
+            </div>
+
+            <!-- Modal Nova Categoria -->
+            <div class="modal fade" id="categoryModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Nova Categoria</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label for="categoryName" class="form-label">Nome da Categoria</label>
+                                <input type="text" class="form-control" id="categoryName" required>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="button" class="btn btn-primary" onclick="saveCategory()">Salvar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Table Container -->
+            <div class="table-container">
+                <div id="hot-container"></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/handsontable@13.1.0/dist/handsontable.full.min.js"></script>
+<script>
+    let hot;
+    let currentMode = 'conta';
+    const categorias = {{ categorias|tojson|safe }};
+    const contas = {{ contas|tojson|safe }};
+    const cartoes = {{ cartoes|tojson|safe }};
+
+    // Debug logs
+    console.log('Categorias:', categorias);
+    console.log('Contas:', contas);
+    console.log('Cartões:', cartoes);
+
+    document.addEventListener('DOMContentLoaded', function() {
+        if (typeof Handsontable === 'undefined') {
+            console.error('Handsontable não foi carregado!');
+            return;
+        }
+        console.log('Handsontable versão:', Handsontable.version);
+        console.log('DOM carregado, inicializando tabela...');
+        initializeTable('conta');
+        
+        // Força um re-render após um pequeno delay
+        setTimeout(() => {
+            if (hot) {
+                console.log('Forçando re-render da tabela');
+                hot.render();
+            }
+        }, 100);
+    });
+
+    function getTableSettings(mode) {
+        console.log('Obtendo configurações para modo:', mode);
+        
+        // Removido height: '100%' -> setado valor fixo
+        const baseSettings = {
+            data: Array(20).fill().map(() => Array(7).fill('')),
+            minRows: 20,
+            maxRows: 20,
+            rowHeaders: true,
+            colHeaders: true,
+            contextMenu: true,
+            licenseKey: 'non-commercial-and-evaluation',
+            renderAllRows: true,
+            autoWrapRow: true,
+            autoWrapCol: true,
+            stretchH: 'all',
+            colWidths: 100,
+            width: '100%',
+            height: 400, // Valor fixo de 400px
+            outsideClickDeselects: false,
+            manualColumnResize: true,
+            manualRowResize: true,
+            wordWrap: true
+        };
+
+        if (mode === 'conta') {
+            return {
+                ...baseSettings,
+                colHeaders: ['Data', 'Tipo', 'Conta', 'Categoria', 'Descrição', 'Valor', 'Lançamento Futuro'],
+                columns: [
+                    { type: 'date', dateFormat: 'YYYY-MM-DD' },
+                    { type: 'dropdown', source: ['Receita', 'Despesa'] },
+                    { type: 'dropdown', source: contas.map(c => c.nome) },
+                    { type: 'dropdown', source: categorias.map(c => c.nome) },
+                    { type: 'text' },
+                    { type: 'numeric', numericFormat: { pattern: '0,0.00' } },
+                    { type: 'checkbox' }
+                ]
+            };
+        } else {
+            // Se for cartão, mudamos a estrutura para 6 colunas
+            return {
+                ...baseSettings,
+                data: Array(20).fill().map(() => Array(6).fill('')),
+                colHeaders: ['Data', 'Cartão', 'Categoria', 'Descrição', 'Valor', 'Parcelas'],
+                columns: [
+                    { type: 'date', dateFormat: 'YYYY-MM-DD' },
+                    { type: 'dropdown', source: cartoes.map(c => c.nome) },
+                    { type: 'dropdown', source: categorias.map(c => c.nome) },
+                    { type: 'text' },
+                    { type: 'numeric', numericFormat: { pattern: '0,0.00' } },
+                    { 
+                        type: 'numeric',
+                        min: 1,
+                        max: 24,
+                        validator: function(value, callback) {
+                            if (value === null || value === '') {
+                                callback(false);
+                            } else {
+                                callback(true);
+                            }
+                        }
+                    }
+                ]
+            };
+        }
+    }
+
+    function initializeTable(mode) {
+        console.log('Iniciando inicialização da tabela...');
+        
+        const container = document.getElementById('hot-container');
+        if (!container) {
+            console.error('Container não encontrado!');
+            return;
+        }
+        
+        const settings = getTableSettings(mode);
+        console.log('Configurações da tabela:', settings);
+
+        if (hot) {
+            console.log('Destruindo tabela existente');
+            hot.destroy();
+        }
+
+        try {
+            console.log('Tentando criar nova instância do Handsontable...');
+            hot = new Handsontable(container, settings);
+
+            if (!hot) {
+                console.error('Falha ao criar instância do Handsontable!');
+                return;
+            }
+
+            console.log('Tabela inicializada com sucesso:', hot);
+
+            // Forçar renderização
+            setTimeout(() => {
+                hot.render();
+                hot.refreshDimensions();  
+                
+                // Em vez de hot.getWidth(), use as propriedades do container
+                const rect = container.getBoundingClientRect();
+                console.log('Dimensões da tabela após render:', {
+                    width: rect.width,
+                    height: rect.height
+                });
+            }, 100);
+
+        } catch (error) {
+            console.error('Erro ao inicializar tabela:', error);
+        }
+    }
+
+    function toggleMode(mode) {
+        console.log('Alternando para modo:', mode);
+        currentMode = mode;
+        document.getElementById('btn-conta').classList.toggle('active', mode === 'conta');
+        document.getElementById('btn-cartao').classList.toggle('active', mode === 'cartao');
+        
+        const infoText = mode === 'conta' 
+            ? 'Preencha: Data, Tipo (Receita/Despesa), Conta, Categoria, Descrição, Valor e Lançamento Futuro'
+            : 'Preencha: Data, Cartão, Categoria, Descrição, Valor e Número de Parcelas';
+        document.getElementById('info-text').textContent = infoText;
+        
+        initializeTable(mode);
+    }
+
+    function clearData() {
+        if (confirm('Tem certeza que deseja limpar todos os dados?')) {
+            hot.loadData(getTableSettings(currentMode).data);
+        }
+    }
+
+    let categoryModal;
+
+    function openCategoryModal() {
+        if (!categoryModal) {
+            categoryModal = new bootstrap.Modal(document.getElementById('categoryModal'));
+        }
+        categoryModal.show();
+    }
+
+    function saveCategory() {
+        const categoryName = document.getElementById('categoryName').value.trim();
+        
+        if (!categoryName) {
+            alert('Por favor, informe o nome da categoria.');
+            return;
+        }
+
+        fetch('/categoria/cadastrar', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ nome: categoryName })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Adicionar nova categoria à lista
+                categorias.push({ id: data.categoria_id, nome: data.nome });
+                
+                // Atualizar dropdowns da tabela
+                const categoriaColumnIndex = currentMode === 'conta' ? 3 : 2;
+                const newSettings = hot.getSettings();
+                newSettings.columns[categoriaColumnIndex].source = categorias.map(c => c.nome);
+                hot.updateSettings(newSettings);
+
+                // Fechar modal e limpar campo
+                categoryModal.hide();
+                document.getElementById('categoryName').value = '';
+                
+                // Mostrar mensagem de sucesso
+                alert('Categoria cadastrada com sucesso!');
+            } else {
+                alert(data.error || 'Erro ao cadastrar categoria.');
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            alert('Erro ao cadastrar categoria. Tente novamente.');
+        });
+    }
+
+    function saveTransactions() {
+        const data = hot.getData().filter(row => row.some(cell => cell !== null && cell !== ''));
+        
+        if (data.length === 0) {
+            alert('Por favor, insira pelo menos uma transação.');
+            return;
+        }
+
+        if (data.length > 20) {
+            alert('Máximo de 20 transações permitido.');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('modo', currentMode);
+        formData.append('transacoes', JSON.stringify(data));
+
+        fetch('/transacao/bulk', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert('Transações salvas com sucesso!');
+                initializeTable(currentMode);
+            } else {
+                alert('Erro ao salvar transações: ' + result.error);
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            alert('Erro ao salvar transações. Tente novamente.');
+        });
+    }
+</script>
+{% endblock %}

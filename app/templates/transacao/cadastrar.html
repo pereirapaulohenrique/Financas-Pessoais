@@ -1,0 +1,343 @@
+{% extends "base.html" %}
+
+{% block title %}Cadastrar Transação{% endblock %}
+
+{% block extra_css %}
+<style>
+    .toggle-container {
+        display: flex;
+        justify-content: center;
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .toggle-btn {
+        padding: 0.5rem 1.5rem;
+        border-radius: 20px;
+        border: none;
+        font-size: 0.875rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        background-color: var(--background-color);
+        color: var(--text-color);
+    }
+
+    .toggle-btn.active {
+        background-color: var(--accent-color);
+        color: white;
+    }
+
+    .form-container {
+        max-width: 800px;
+        margin: 0 auto;
+    }
+
+    .form-row {
+        display: flex;
+        gap: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .form-group {
+        flex: 1;
+    }
+
+    .checkbox-group {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .checkbox-group input[type="checkbox"] {
+        width: auto;
+    }
+
+    .categoria-group {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .categoria-group select {
+        flex: 1;
+    }
+
+    /* Modal styles */
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .modal-content {
+        background-color: white;
+        padding: 2rem;
+        border-radius: 8px;
+        width: 100%;
+        max-width: 500px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title mb-0">Cadastrar Transação</h2>
+    </div>
+    <div class="card-body">
+        <div class="toggle-container">
+            <button class="toggle-btn active" onclick="toggleFormulario('conta')" id="toggle-conta">
+                <i class="fas fa-wallet me-2"></i>Conta Corrente
+            </button>
+            <button class="toggle-btn" onclick="toggleFormulario('cartao')" id="toggle-cartao">
+                <i class="fas fa-credit-card me-2"></i>Cartão de Crédito
+            </button>
+        </div>
+
+        <div class="form-container">
+            <!-- Formulário Conta Corrente -->
+            <div id="form-conta">
+                <form method="POST" class="needs-validation" novalidate>
+                    <input type="hidden" name="tipo_transacao" value="conta_corrente">
+                    
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="lancamento_futuro" name="lancamento_futuro" class="form-check-input">
+                        <label for="lancamento_futuro" class="form-check-label">Lançamento Futuro</label>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="data" class="form-label">Data *</label>
+                            <input type="date" id="data" name="data" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="tipo" class="form-label">Tipo *</label>
+                            <select id="tipo" name="tipo" class="form-select" required>
+                                <option value="Receita">Receita</option>
+                                <option value="Despesa">Despesa</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="conta" class="form-label">Conta *</label>
+                            <select id="conta" name="conta" class="form-select" required>
+                                <option value="" disabled selected>Selecione</option>
+                                {% for conta in contas %}
+                                <option value="{{ conta.id }}">{{ conta.nome }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="categoria" class="form-label">Categoria *</label>
+                            <div class="categoria-group">
+                                <select id="categoria" name="categoria" class="form-select" required>
+                                    <option value="" disabled selected>Selecione</option>
+                                    {% for categoria in categorias %}
+                                    <option value="{{ categoria.id }}">{{ categoria.nome }}</option>
+                                    {% endfor %}
+                                </select>
+                                <button type="button" class="btn btn-outline-primary" onclick="abrirModal()">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group mb-3">
+                        <label for="descricao" class="form-label">Descrição</label>
+                        <input type="text" id="descricao" name="descricao" class="form-control" placeholder="Digite uma descrição...">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="valor" class="form-label">Valor *</label>
+                            <input type="number" step="0.01" id="valor" name="valor" class="form-control" required placeholder="R$ 0,00">
+                        </div>
+                        <div class="form-group d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-save me-2"></i>Cadastrar
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Formulário Cartão de Crédito -->
+            <div id="form-cartao" style="display: none;">
+                <form method="POST" class="needs-validation" novalidate>
+                    <input type="hidden" name="tipo_transacao" value="cartao_credito">
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="data-cartao" class="form-label">Data *</label>
+                            <input type="date" id="data-cartao" name="data" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="cartao" class="form-label">Cartão *</label>
+                            <select id="cartao" name="cartao" class="form-select" required>
+                                <option value="" disabled selected>Selecione</option>
+                                {% for cartao in cartoes %}
+                                <option value="{{ cartao.id }}">{{ cartao.nome }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="categoria-cartao" class="form-label">Categoria *</label>
+                            <div class="categoria-group">
+                                <select id="categoria-cartao" name="categoria" class="form-select" required>
+                                    <option value="" disabled selected>Selecione</option>
+                                    {% for categoria in categorias %}
+                                    <option value="{{ categoria.id }}">{{ categoria.nome }}</option>
+                                    {% endfor %}
+                                </select>
+                                <button type="button" class="btn btn-outline-primary" onclick="abrirModal()">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="num_parcelas" class="form-label">Número de Parcelas *</label>
+                            <input type="number" id="num_parcelas" name="num_parcelas" class="form-control" min="1" value="1" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group mb-3">
+                        <label for="descricao-cartao" class="form-label">Descrição</label>
+                        <input type="text" id="descricao-cartao" name="descricao" class="form-control" placeholder="Digite uma descrição...">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="valor-cartao" class="form-label">Valor *</label>
+                            <input type="number" step="0.01" id="valor-cartao" name="valor" class="form-control" required placeholder="R$ 0,00">
+                        </div>
+                        <div class="form-group d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-save me-2"></i>Cadastrar
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nova Categoria -->
+<div id="modalNovaCategoria" class="modal">
+    <div class="modal-content">
+        <h3 class="mb-4">Nova Categoria</h3>
+        <div class="mb-3">
+            <label for="novaCategoriaNome" class="form-label">Nome *</label>
+            <input type="text" id="novaCategoriaNome" class="form-control" required>
+        </div>
+        <div class="d-flex justify-content-end gap-2">
+            <button type="button" class="btn btn-secondary" onclick="fecharModal()">
+                <i class="fas fa-times me-2"></i>Cancelar
+            </button>
+            <button type="button" class="btn btn-primary" onclick="salvarCategoria()">
+                <i class="fas fa-save me-2"></i>Salvar
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function toggleFormulario(tipo) {
+        const formConta = document.getElementById('form-conta');
+        const formCartao = document.getElementById('form-cartao');
+        const btnConta = document.getElementById('toggle-conta');
+        const btnCartao = document.getElementById('toggle-cartao');
+
+        if (tipo === 'conta') {
+            formConta.style.display = 'block';
+            formCartao.style.display = 'none';
+            btnConta.classList.add('active');
+            btnCartao.classList.remove('active');
+        } else {
+            formConta.style.display = 'none';
+            formCartao.style.display = 'block';
+            btnConta.classList.remove('active');
+            btnCartao.classList.add('active');
+        }
+    }
+
+    function abrirModal() {
+        document.getElementById('modalNovaCategoria').style.display = 'flex';
+    }
+
+    function fecharModal() {
+        document.getElementById('modalNovaCategoria').style.display = 'none';
+        document.getElementById('novaCategoriaNome').value = '';
+    }
+
+    function salvarCategoria() {
+        const nomeCategoria = document.getElementById('novaCategoriaNome').value;
+
+        if (!nomeCategoria.trim()) {
+            alert("O nome da categoria não pode estar vazio.");
+            return;
+        }
+
+        fetch('/categoria/cadastrar_ajax', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ nome: nomeCategoria }),
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const selectCategoria = document.querySelectorAll('select[name="categoria"]');
+                selectCategoria.forEach(select => {
+                    const option = document.createElement('option');
+                    option.value = data.categoria_id;
+                    option.textContent = data.nome;
+                    select.appendChild(option);
+                    select.value = data.categoria_id; // Seleciona a nova categoria
+                });
+                
+                fecharModal();
+                alert("Categoria cadastrada com sucesso!");
+            } else {
+                alert(data.error || "Erro ao cadastrar categoria.");
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao cadastrar categoria:', error);
+            alert("Erro ao cadastrar categoria. Tente novamente.");
+        });
+    }
+
+    // Validação de formulários do Bootstrap
+    (() => {
+        'use strict';
+        const forms = document.querySelectorAll('.needs-validation');
+        Array.from(forms).forEach(form => {
+            form.addEventListener('submit', event => {
+                if (!form.checkValidity()) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+                form.classList.add('was-validated');
+            }, false);
+        });
+    })();
+</script>
+{% endblock %}

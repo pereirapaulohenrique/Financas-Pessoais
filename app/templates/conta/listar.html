@@ -1,0 +1,536 @@
+{% extends "base.html" %}
+
+{% block title %}Contas - Finanças Pessoais{% endblock %}
+
+{% block extra_css %}
+<style>
+  .modal-backdrop {
+      z-index: 1040;
+  }
+  
+  .modal {
+      z-index: 1050;
+  }
+
+  .modal-dialog {
+      max-width: 800px;
+  }
+
+  .modal-content {
+      border-radius: 12px;
+      border: none;
+      box-shadow: var(--shadow);
+  }
+
+  .cartao-row {
+      background-color: #f8fafc;
+  }
+
+  .cartao-row td {
+      padding-left: 3rem !important;
+      border-left: 2px solid var(--primary);
+  }
+
+  .cartao-row td:first-child {
+      position: relative;
+  }
+
+  .cartoes-container {
+      border-left: 3px solid var(--primary);
+  }
+
+  .cartoes-container td {
+      padding: 0 !important;
+  }
+
+  .cartao-row td:first-child::before {
+      content: '';
+      position: absolute;
+      left: 2.5rem;
+      top: 50%;
+      width: 0.5rem;
+      height: 2px;
+      background-color: var(--primary);
+  }
+
+  .toggle-cartoes {
+      background: none;
+      border: none;
+      padding: 0.25rem 0.5rem;
+      cursor: pointer;
+      color: var(--primary);
+      transition: transform 0.2s ease;
+  }
+  
+  .toggle-cartoes:hover {
+      color: var(--primary-hover);
+  }
+
+  .toggle-cartoes.expanded {
+      transform: rotate(90deg);
+  }
+
+  .cartoes-hidden {
+      display: none;
+  }
+
+  .form-row {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1rem;
+  }
+
+  .form-group {
+      flex: 1;
+  }
+
+  .link-titular {
+      display: inline-block;
+      margin-bottom: 1rem;
+      color: var(--primary);
+      text-decoration: none;
+  }
+
+  .link-titular:hover {
+      text-decoration: underline;
+  }
+
+  .card-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+  }
+
+  .limite-container {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+  }
+
+  .limite-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+  }
+
+  .limite-barra {
+      height: 6px;
+      background-color: #e9ecef;
+      border-radius: 3px;
+      overflow: hidden;
+  }
+
+  .limite-usado {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.3s ease;
+  }
+
+  .limite-valores {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.875rem;
+  }
+
+  .saldo-editable {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+  }
+
+  .btn-edit-saldo {
+      padding: 0;
+      background: none;
+      border: none;
+      color: var(--primary);
+      cursor: pointer;
+  }
+
+  .btn-edit-saldo:hover {
+      color: var(--primary-darker);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-header">
+      <div class="card-actions">
+          <h5 class="card-title mb-0">Contas e Cartões</h5>
+          <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalConta">
+              <i class="fas fa-plus me-2"></i>Nova Conta
+          </button>
+      </div>
+  </div>
+  <div class="card-body">
+      <div class="table-responsive">
+          <table class="table">
+              <thead>
+                  <tr>
+                      <th>Nome</th>
+                      <th>Tipo</th>
+                      <th>Titular</th>
+                      <th>Saldo Inicial</th>
+                      <th>Saldo Atual</th>
+                      <th>Ações</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  {% for conta in contas %}
+                  <!-- Linha da Conta -->
+                  <tr class="conta-row">
+                      <td>
+                          {% if conta.cartoes %}
+                          <button class="toggle-cartoes me-2" onclick="toggleCartoes('conta-{{ conta.id }}')">
+                              <i class="fas fa-chevron-right"></i>
+                          </button>
+                          {% endif %}
+                          {{ conta.nome }}
+                      </td>
+                      <td>{{ conta.tipo }}</td>
+                      <td>{{ conta.titular.nome_completo }}</td>
+                      <td>
+                          <div class="saldo-editable">
+                              <span>R$ {{ '{:,.2f}'.format(conta.saldo_inicial) }}</span>
+                          </div>
+                      </td>
+                      <td>R$ {{ '{:,.2f}'.format(conta.calcular_saldo()) }}</td>
+                      <td>
+                          <div class="btn-group">
+                              <a href="{{ url_for('conta.editar', conta_id=conta.id) }}" class="btn btn-sm btn-outline-primary">
+                                  <i class="fas fa-edit me-1"></i>Editar
+                              </a>
+                              <button onclick="excluirConta({{ conta.id }})" class="btn btn-sm btn-outline-danger">
+                                  <i class="fas fa-trash-alt me-1"></i>Excluir
+                              </button>
+                          </div>
+                      </td>
+                  </tr>
+                  
+                  {% if conta.cartoes %}
+                  <!-- Linha dos Cartões -->
+                  <tr class="cartoes-container cartoes-hidden" id="conta-{{ conta.id }}">
+                      <td colspan="6" class="p-0">
+                          <div class="ps-4">
+                              <table class="table mb-0">
+                                  <thead>
+                                      <tr class="table-light">
+                                          <th>Cartão</th>
+                                          <th>Limite Total</th>
+                                          <th>Limite Disponível</th>
+                                          <th>Fechamento</th>
+                                          <th>Vencimento</th>
+                                      </tr>
+                                  </thead>
+                                  <tbody>
+                                      {% for cartao in conta.cartoes %}
+                                      {% set limite_usado = cartao.limite - cartao.atualizar_limite_disponivel() %}
+                                      {% set percentual_usado = (limite_usado / cartao.limite * 100) %}
+                                      <tr class="cartao-row">
+                                          <td>{{ cartao.nome }}</td>
+                                          <td>R$ {{ '{:,.2f}'.format(cartao.limite) }}</td>
+                                          <td>
+                                              <div class="limite-container">
+                                                  <div class="limite-barra">
+                                                      <div class="limite-usado" style="width: {{ percentual_usado }}%; 
+                                                          background-color: {% if percentual_usado > 90 %}var(--danger){% elif percentual_usado > 70 %}var(--warning){% else %}var(--primary){% endif %};">
+                                                      </div>
+                                                  </div>
+                                                  <div class="limite-valores">
+                                                      <span>Usado: R$ {{ '{:,.2f}'.format(limite_usado) }}</span>
+                                                      <span>Disponível: R$ {{ '{:,.2f}'.format(cartao.atualizar_limite_disponivel()) }}</span>
+                                                  </div>
+                                              </div>
+                                          </td>
+                                          <td>Dia {{ cartao.fechamento }}</td>
+                                          <td>Dia {{ cartao.vencimento }}</td>
+                                      </tr>
+                                      {% endfor %}
+                                  </tbody>
+                              </table>
+                          </div>
+                      </td>
+                  </tr>
+                  {% endif %}
+                  {% endfor %}
+              </tbody>
+          </table>
+      </div>
+  </div>
+</div>
+
+<!-- Modal para Nova Conta -->
+<div class="modal fade" id="modalConta" tabindex="-1" aria-labelledby="modalContaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalContaLabel">Nova Conta</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <form method="POST" action="{{ url_for('conta.cadastrar') }}" id="formNovaConta">
+                  <div class="form-row">
+                      <div class="form-group">
+                          <label for="nome" class="form-label">Nome da Conta *</label>
+                          <input type="text" id="nome" name="nome" class="form-control" required>
+                      </div>
+                      <div class="form-group">
+                          <label for="tipo_conta" class="form-label">Tipo de Conta *</label>
+                          <select id="tipo_conta" name="tipo_conta" class="form-select" required>
+                              <option value="Conta corrente">Conta corrente</option>
+                              <option value="Conta salário">Conta salário</option>
+                              <option value="Conta poupança">Conta poupança</option>
+                              <option value="Conta de investimento">Conta de investimento</option>
+                          </select>
+                      </div>
+                  </div>
+          
+                  <div class="form-row">
+                      <div class="form-group">
+                          <label for="titular" class="form-label">Titular *</label>
+                          <select id="titular" name="titular" class="form-select" required>
+                              {% for usuario in usuarios %}
+                                  <option value="{{ usuario.id }}">{{ usuario.nome_completo }}</option>
+                              {% endfor %}
+                          </select>
+                      </div>
+                      <div class="form-group d-flex align-items-end">
+                          <a href="#" class="link-titular" onclick="abrirModalTitular()">
+                              <i class="fas fa-plus-circle me-1"></i>Adicionar Titular
+                          </a>
+                      </div>
+                  </div>
+          
+                  <div class="form-row">
+                      <div class="form-group">
+                          <label for="saldo_inicial" class="form-label">Saldo Inicial</label>
+                          <input type="number" id="saldo_inicial" name="saldo_inicial" class="form-control" step="0.01" value="0">
+                          <small class="text-muted">Este valor será considerado como saldo inicial da conta.</small>
+                      </div>
+                  </div>
+          
+                  <div class="form-row">
+                      <div class="form-group">
+                          <label for="num_cartoes" class="form-label">Número de Cartões de Crédito:</label>
+                          <div class="input-group">
+                              <input type="number" id="num_cartoes" name="num_cartoes" min="0" max="10" value="0" class="form-control">
+                              <button type="button" class="btn btn-outline-primary" onclick="gerarCartoes()">
+                                  <i class="fas fa-credit-card me-1"></i>Adicionar Cartões
+                              </button>
+                          </div>
+                      </div>
+                  </div>
+          
+                  <div class="table-responsive mt-3">
+                      <table class="table table-bordered cartoes-table">
+                          <thead>
+                              <tr>
+                                  <th>Nome do Cartão</th>
+                                  <th>Limite</th>
+                                  <th>Fechamento (Dia)</th>
+                                  <th>Vencimento (Dia)</th>
+                              </tr>
+                          </thead>
+                          <tbody id="tabela_cartoes"></tbody>
+                      </table>
+                  </div>
+              </form>
+          </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="document.getElementById('formNovaConta').submit()">
+                    <i class="fas fa-save me-2"></i>Salvar Conta
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para cadastrar novo titular -->
+<div class="modal fade" id="modalNovoTitular" tabindex="-1" aria-labelledby="modalNovoTitularLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalNovoTitularLabel">Novo Titular</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+        <div class="modal-body">
+            <form id="formNovoTitular">
+                <div class="mb-3">
+                    <label for="nomeCompletoTitular" class="form-label">Nome Completo *</label>
+                    <input type="text" id="nomeCompletoTitular" name="nome_completo" class="form-control" required>
+                </div>
+
+                <div class="mb-3">
+                    <label for="dataNascimentoTitular" class="form-label">Data de Nascimento *</label>
+                    <input type="date" id="dataNascimentoTitular" name="data_nascimento" class="form-control" required>
+                </div>
+
+                <div class="mb-3">
+                    <label for="emailTitular" class="form-label">E-mail *</label>
+                    <input type="email" id="emailTitular" name="email" class="form-control" required>
+                </div>
+
+                <div class="mb-3">
+                    <label for="senhaTitular" class="form-label">Senha *</label>
+                    <input type="password" id="senhaTitular" name="senha" class="form-control" required>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="fecharModalTitular()">Cancelar</button>
+            <button type="button" class="btn btn-primary" onclick="salvarTitular()">Salvar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Editar Saldo Inicial -->
+<!-- Modal Editar Saldo Inicial -->
+<div class="modal fade" id="modalSaldoInicial" data-bs-backdrop="static">
+  <div class="modal-dialog">
+      <div class="modal-content">
+          <form method="POST" id="formSaldoInicial">
+              <div class="modal-header">
+                  <h5 class="modal-title">Editar Saldo Inicial</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" id="closeModalSaldo"></button>
+              </div>
+              <div class="modal-body">
+                  <div class="mb-3">
+                      <label for="saldoInicial" class="form-label">Saldo Inicial</label>
+                      <input type="number" step="0.01" class="form-control" id="saldoInicial" 
+                             name="saldo_inicial" required>
+                      <div class="form-text">
+                          Este valor será considerado como saldo inicial da conta e afetará o cálculo do saldo atual.
+                      </div>
+                  </div>
+              </div>
+              <div class="modal-footer">
+                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                  <button type="submit" class="btn btn-primary">Salvar</button>
+              </div>
+          </form>
+      </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Variáveis globais para os modais
+  let modalSaldoInicial;
+  let modalTitular;
+  
+  function gerarCartoes() {
+      const numCartoes = document.getElementById('num_cartoes').value;
+      const tabelaCartoes = document.getElementById('tabela_cartoes');
+      tabelaCartoes.innerHTML = '';
+  
+      for (let i = 0; i < numCartoes; i++) {
+          const linha = `
+              <tr>
+                  <td>
+                      <input type="text" name="cartao_nome_${i}" class="form-control" placeholder="Nome do Cartão" required>
+                  </td>
+                  <td>
+                      <input type="number" name="cartao_limite_${i}" class="form-control" placeholder="Limite" step="0.01" required>
+                  </td>
+                  <td>
+                      <select name="cartao_fechamento_${i}" class="form-select" required>
+                          ${gerarOpcoesDias()}
+                      </select>
+                  </td>
+                  <td>
+                      <select name="cartao_vencimento_${i}" class="form-select" required>
+                          ${gerarOpcoesDias()}
+                      </select>
+                  </td>
+              </tr>
+          `;
+          tabelaCartoes.innerHTML += linha;
+      }
+  }
+  
+  function gerarOpcoesDias() {
+      let opcoes = '';
+      for (let i = 1; i <= 31; i++) {
+          opcoes += `<option value="${i}">${i}</option>`;
+      }
+      return opcoes;
+  }
+  
+  function toggleCartoes(containerId) {
+      const container = document.getElementById(containerId);
+      const button = event.currentTarget;
+      
+      container.classList.toggle('cartoes-hidden');
+      button.classList.toggle('expanded');
+  }
+  
+  function excluirConta(contaId) {
+      if (confirm('Tem certeza que deseja excluir esta conta?')) {
+          fetch(`/conta/excluir/${contaId}`, {
+              method: 'POST',
+          })
+          .then(response => {
+              if (response.ok) {
+                  location.reload();
+              } else {
+                  throw new Error('Erro ao excluir conta');
+              }
+          })
+          .catch(error => {
+              console.error('Erro:', error);
+              alert('Erro ao excluir conta. Tente novamente.');
+          });
+      }
+  }
+  
+  function abrirModalTitular() {
+      if (!modalTitular) {
+          modalTitular = new bootstrap.Modal(document.getElementById('modalNovoTitular'));
+      }
+      modalTitular.show();
+  }
+  
+  function fecharModalTitular() {
+      if (modalTitular) {
+          modalTitular.hide();
+      }
+  }
+  
+  function salvarTitular() {
+      const formData = new FormData(document.getElementById('formNovoTitular'));
+      const dados = Object.fromEntries(formData.entries());
+  
+      fetch('/cadastrar_titular_ajax', {
+          method: 'POST',
+          headers: {
+              'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(dados)
+      })
+      .then(response => response.json())
+      .then(data => {
+          if (data.success) {
+              const selectTitular = document.getElementById('titular');
+              const option = document.createElement('option');
+              option.value = data.id;
+              option.textContent = data.nome_completo;
+              selectTitular.appendChild(option);
+              selectTitular.value = data.id;
+              
+              fecharModalTitular();
+              location.reload();
+          } else {
+              alert('Erro ao salvar o titular: ' + data.error);
+          }
+      })
+      .catch(error => {
+          console.error('Erro:', error);
+          alert('Erro ao salvar o titular. Tente novamente.');
+      });
+  }
+  </script>
+{% endblock %}
