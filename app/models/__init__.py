@@ -8,7 +8,8 @@ from .orcamento import (
     OrcamentoPrevisao, 
     OrcamentoHistorico,
     OrcamentoLancamento,
-    TipoRepeticao
+    TipoRepeticao,
+    TipoRepeticaoMensal  # Adicione esta linha
 )
 
 # Isso permite importar os modelos diretamente do pacote models
@@ -22,5 +23,6 @@ __all__ = [
     'OrcamentoPrevisao',
     'OrcamentoHistorico',
     'OrcamentoLancamento',
-    'TipoRepeticao'
+    'TipoRepeticao',
+    'TipoRepeticaoMensal'  # Adicione esta linha também
 ]

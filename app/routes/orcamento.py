@@ -8,6 +8,7 @@ from app.models import (
     OrcamentoPrevisao,
     OrcamentoLancamento,
     TipoRepeticao,
+    TipoRepeticaoMensal,  # Adicione esta linha
     Transacao
 )
 from datetime import datetime, date
@@ -169,22 +170,24 @@ def get_orcamento(id):
         'data_inicio': orcamento.data_inicio.strftime('%Y-%m-%d'),
         'data_fim': orcamento.data_fim.strftime('%Y-%m-%d'),
         'lancamentos': [{
-        'data_inicial': lancamento.data_inicial.strftime('%Y-%m-%d'),
-        'valor': float(lancamento.valor),
-        'descricao': lancamento.descricao,
-        'tipo_repeticao': lancamento.tipo_repeticao,
-        'intervalo_repeticao': lancamento.intervalo_repeticao,
-        'dia_fixo': lancamento.dia_fixo,
-        'dia_semana': lancamento.dia_semana,
-        # Adicionar campo para mostrar todas as datas calculadas
-        'datas_ocorrencia': [
-            data.strftime('%Y-%m-%d') 
-            for data in lancamento.gerar_datas_lancamento(
-                orcamento.data_inicio, 
-                orcamento.data_fim
-            )
-        ]
-    } for lancamento in orcamento.lancamentos if not lancamento.deleted_at]
+            'data_inicial': lancamento.data_inicial.strftime('%Y-%m-%d'),
+            'valor': float(lancamento.valor),
+            'descricao': lancamento.descricao,
+            'tipo_repeticao': lancamento.tipo_repeticao,
+            'intervalo_repeticao': lancamento.intervalo_repeticao,
+            # Removido dia_fixo e dia_semana que não existem mais
+            'dias_semana': lancamento.dias_semana if lancamento.tipo_repeticao == 'week' else None,
+            'tipo_repeticao_mensal': lancamento.tipo_repeticao_mensal if lancamento.tipo_repeticao == 'month' else None,
+            'semana_do_mes': lancamento.semana_do_mes if lancamento.tipo_repeticao == 'month' else None,
+            # Adiciona as datas calculadas
+            'datas_ocorrencia': [
+                data.strftime('%Y-%m-%d') 
+                for data in lancamento.gerar_datas_lancamento(
+                    orcamento.data_inicio, 
+                    orcamento.data_fim
+                )
+            ]
+        } for lancamento in orcamento.lancamentos if not lancamento.deleted_at]
     })
 
 @orcamento_bp.route('/salvar', methods=['POST'])
@@ -248,16 +251,21 @@ def salvar():
 
         print("Iniciando transação do banco de dados...")
         
-        # Processar orçamento existente ou criar novo
+        # Criar ou obter o orçamento
         if orcamento_id and orcamento_id != 'null':
             print(f"Buscando orçamento existente ID: {orcamento_id}")
             orcamento = Orcamento.query.get_or_404(int(orcamento_id))
             print("Removendo lançamentos existentes...")
+            # Primeiro excluímos as previsões
+            OrcamentoPrevisao.query.filter_by(orcamento_id=orcamento.id, realizado=False).delete()
+            # Depois os lançamentos
             for lancamento in orcamento.lancamentos:
                 db.session.delete(lancamento)
+            db.session.flush()
         else:
             print("Criando novo orçamento")
             orcamento = Orcamento()
+            db.session.add(orcamento)
 
         # Atualizar dados básicos do orçamento
         print("Atualizando dados básicos do orçamento...")
@@ -265,14 +273,14 @@ def salvar():
         orcamento.tipo = tipo
         orcamento.data_inicio = data_inicio
         orcamento.data_fim = data_fim
-        
+
         # Processar lançamentos
         print("Iniciando processamento dos lançamentos...")
-        lancamentos_raw = request.form.get('lancamentos', '[]')
-        print(f"Dados brutos dos lançamentos: {lancamentos_raw[:200]}...")
-        
+        lancamentos_json = request.form.get('lancamentos', '[]')
+        print(f"Dados recebidos dos lançamentos: {lancamentos_json[:200]}...")  # Log parcial para não sobrecarregar
+
         try:
-            lancamentos_data = json.loads(lancamentos_raw)
+            lancamentos_data = json.loads(lancamentos_json)
         except json.JSONDecodeError:
             return jsonify({
                 'success': False,
@@ -292,127 +300,84 @@ def salvar():
                 'success': False,
                 'error': 'Número máximo de lançamentos excedido (20)'
             }), 400
-        
+
         valor_total = 0
         
-        for idx, lancamento_data in enumerate(lancamentos_data, 1):
+        for idx, lanc_data in enumerate(lancamentos_data, 1):
             print(f"\nProcessando lançamento {idx}/{len(lancamentos_data)}")
-            print(f"Dados do lançamento: {lancamento_data}")
             
             try:
-                # Validar campos obrigatórios
-                campos_obrigatorios = ['data_inicial', 'tipo_repeticao', 'intervalo_repeticao', 'valor']
-                for campo in campos_obrigatorios:
-                    if campo not in lancamento_data:
-                        raise KeyError(f'Campo obrigatório ausente: {campo}')
+                # Criar instância do lançamento
+                lancamento = OrcamentoLancamento(
+                    orcamento=orcamento,
+                    data_inicial=datetime.strptime(lanc_data['data_inicial'], '%Y-%m-%d').date(),
+                    tipo_repeticao=lanc_data['periodo'],
+                    intervalo_repeticao=int(lanc_data.get('intervalo', 1)),
+                    valor=float(lanc_data['valor']),
+                    descricao=lanc_data.get('descricao', '')
+                )
 
-                data_inicial = datetime.strptime(lancamento_data['data_inicial'], '%Y-%m-%d').date()
-                valor = float(lancamento_data['valor'])
-                tipo_repeticao = lancamento_data['tipo_repeticao']
-                intervalo_repeticao = int(lancamento_data['intervalo_repeticao'])
-
-                # Validações adicionais
-                if valor <= 0:
+                # Validar valor
+                if lancamento.valor <= 0:
                     return jsonify({
                         'success': False,
                         'error': f'Valor deve ser maior que zero no lançamento {idx}'
                     }), 400
 
-                if intervalo_repeticao < 1:
-                    return jsonify({
-                        'success': False,
-                        'error': f'Intervalo de repetição deve ser maior que zero no lançamento {idx}'
-                    }), 400
+                # Processar configurações específicas por tipo de repetição
+                if lanc_data['periodo'] == TipoRepeticao.WEEK.value:
+                    dias_semana = lanc_data.get('dias_semana', [])
+                    if not dias_semana:
+                        return jsonify({
+                            'success': False,
+                            'error': f'Selecione pelo menos um dia da semana para o lançamento {idx}'
+                        }), 400
+                    lancamento.dias_semana = dias_semana
 
-                if tipo_repeticao not in ['unico', 'diario', 'semanal', 'mensal']:
-                    return jsonify({
-                        'success': False,
-                        'error': f'Tipo de repetição inválido no lançamento {idx}'
-                    }), 400
-                
-                print(f"Criando objeto OrcamentoLancamento...")
-                lancamento = OrcamentoLancamento(
-                    orcamento=orcamento,
-                    data_inicial=data_inicial,
-                    valor=valor,
-                    descricao=lancamento_data.get('descricao', ''),
-                    tipo_repeticao=tipo_repeticao,
-                    intervalo_repeticao=intervalo_repeticao
-                )
-                
-                print("Processando campos específicos...")
-                if tipo_repeticao == 'mensal' and 'dia_fixo' in lancamento_data:
-                    dia_fixo = lancamento_data['dia_fixo']
-                    if dia_fixo:
-                        dia_fixo = int(dia_fixo)
-                        if not (1 <= dia_fixo <= 31):
-                            return jsonify({
-                                'success': False,
-                                'error': f'Dia fixo deve estar entre 1 e 31 no lançamento {idx}'
-                            }), 400
-                        lancamento.dia_fixo = dia_fixo
-                
-                if tipo_repeticao == 'semanal' and 'dia_semana' in lancamento_data:
-                    dia_semana = lancamento_data.get('dia_semana')
-                    if dia_semana is not None:
-                        dia_semana = int(dia_semana)
-                        if not (0 <= dia_semana <= 6):
-                            return jsonify({
-                                'success': False,
-                                'error': f'Dia da semana deve estar entre 0 (domingo) e 6 (sábado) no lançamento {idx}'
-                            }), 400
-                        lancamento.dia_semana = dia_semana
-                
-                print("Adicionando lançamento à sessão...")
-                db.session.add(lancamento)
-                
-                print("Calculando datas de ocorrência...")
+                elif lanc_data['periodo'] == TipoRepeticao.MONTH.value:
+                    tipo_mensal = lanc_data.get('tipo_repeticao_mensal')
+                    if not tipo_mensal:
+                        return jsonify({
+                            'success': False,
+                            'error': f'Selecione o tipo de repetição mensal para o lançamento {idx}'
+                        }), 400
+                    lancamento.tipo_repeticao_mensal = tipo_mensal
+                    
+                    if tipo_mensal == TipoRepeticaoMensal.DIA_DA_SEMANA.value:
+                        data_inicial = datetime.strptime(lanc_data['data_inicial'], '%Y-%m-%d').date()
+                        lancamento.semana_do_mes = (data_inicial.day - 1) // 7 + 1
+
+                # Calcular datas de ocorrência
                 datas = lancamento.gerar_datas_lancamento(orcamento.data_inicio, orcamento.data_fim)
-                print(f"Número de ocorrências geradas: {len(datas)}")
-                
+                print(f"Datas geradas para lançamento {idx}: {len(datas)}")
+
                 if len(datas) > 100:  # Validação de segurança
-                    print(f"Aviso: Número alto de ocorrências ({len(datas)})")
                     return jsonify({
                         'success': False,
-                        'error': f'Número muito alto de ocorrências para o lançamento {idx} ({len(datas)}). Por favor, revise os parâmetros.'
+                        'error': f'Número muito alto de ocorrências para o lançamento {idx}'
                     }), 400
 
-                valor_lancamento = float(valor) * len(datas)
-                if valor_lancamento > 1000000:  # Validação de valor total
-                    print(f"Aviso: Valor total muito alto ({valor_lancamento})")
+                # Calcular valor total do lançamento
+                valor_lancamento = float(lancamento.valor) * len(datas)
+                if valor_lancamento > 1000000:  # Limite de valor
                     return jsonify({
                         'success': False,
-                        'error': f'Valor total muito alto para o lançamento {idx} (R$ {valor_lancamento:.2f}). Por favor, revise os valores.'
+                        'error': f'Valor total muito alto para o lançamento {idx}'
                     }), 400
-                
+
                 valor_total += valor_lancamento
-                print(f"Valor calculado para o lançamento: {valor_lancamento}")
-                
-            except ValueError as e:
-                print(f"Erro de validação no lançamento {idx}: {str(e)}")
-                return jsonify({
-                    'success': False,
-                    'error': f'Erro nos dados do lançamento {idx}: {str(e)}'
-                }), 400
-            except KeyError as e:
-                print(f"Campo obrigatório ausente no lançamento {idx}: {str(e)}")
-                return jsonify({
-                    'success': False,
-                    'error': f'Campo obrigatório ausente no lançamento {idx}: {str(e)}'
-                }), 400
+                db.session.add(lancamento)
+
             except Exception as e:
-                print(f"Erro inesperado no lançamento {idx}: {str(e)}")
+                print(f"Erro no processamento do lançamento {idx}: {str(e)}")
                 return jsonify({
                     'success': False,
-                    'error': f'Erro inesperado no lançamento {idx}: {str(e)}'
+                    'error': f'Erro no lançamento {idx}: {str(e)}'
                 }), 400
-        
-        print(f"\nValor total calculado: {valor_total}")
+
+        # Atualizar valor total do orçamento
+        print(f"Valor total calculado: {valor_total}")
         orcamento.valor_total = valor_total
-        
-        if not orcamento_id:
-            print("Adicionando novo orçamento à sessão...")
-            db.session.add(orcamento)
         
         print("Executando flush...")
         db.session.flush()
@@ -438,7 +403,7 @@ def salvar():
             'success': False,
             'error': f"{type(e).__name__}: {str(e)}"
         }), 500
-
+    
 @orcamento_bp.route('/<int:id>/excluir', methods=['POST'])
 @login_required
 def excluir(id):

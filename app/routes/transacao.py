@@ -368,7 +368,7 @@ def extrato():
 
     # Dicionário para armazenar valores por data
     timeline = {}
-
+    
     # Buscar transações reais do período
     transacoes_reais = db.session.query(
         Transacao
@@ -382,7 +382,6 @@ def extrato():
     # Processar transações reais primeiro
     for transacao in transacoes_reais:
         if transacao.tipo == 'Transferência':
-            # Ignorar transferências internas
             continue
             
         data_str = transacao.data.strftime('%Y-%m-%d')
@@ -393,11 +392,13 @@ def extrato():
                 'despesa_real': 0,
                 'receita_prevista': 0,
                 'despesa_prevista': 0,
+                'economia': 0,  # Novo campo para economias
                 'detalhes': {
                     'receita_real': [],
                     'despesa_real': [],
                     'receita_prevista': [],
-                    'despesa_prevista': []
+                    'despesa_prevista': [],
+                    'economias': []  # Novo campo para detalhes de economias
                 }
             }
 
@@ -411,9 +412,9 @@ def extrato():
 
     # Criar conjunto de IDs de transações já processadas
     transacoes_realizadas_ids = {t.id for t in transacoes_reais}
-    previsoes_realizadas_ids = set()
+    hoje = date.today()
 
-    # Buscar previsões não realizadas
+    # Buscar previsões
     previsoes = db.session.query(
         OrcamentoPrevisao
     ).join(
@@ -425,19 +426,14 @@ def extrato():
     ).filter(
         OrcamentoPrevisao.data_prevista.between(data_inicio_date, data_fim_date),
         OrcamentoPrevisao.deleted_at == None,
-        OrcamentoPrevisao.realizado == False,
         or_(
-            OrcamentoPrevisao.transacao_id == None,
-            ~OrcamentoPrevisao.transacao_id.in_(transacoes_realizadas_ids)
+            OrcamentoPrevisao.realizado == False,
+            OrcamentoPrevisao.valor_realizado != OrcamentoPrevisao.valor
         )
     ).all()
 
-    # Processar previsões não realizadas
+ # Processar previsões
     for previsao in previsoes:
-        if (previsao.transacao_id in transacoes_realizadas_ids or
-            previsao.id in previsoes_realizadas_ids):
-            continue
-
         data_str = previsao.data_prevista.strftime('%Y-%m-%d')
         if data_str not in timeline:
             timeline[data_str] = {
@@ -446,37 +442,56 @@ def extrato():
                 'despesa_real': 0,
                 'receita_prevista': 0,
                 'despesa_prevista': 0,
+                'economia': 0,
                 'detalhes': {
                     'receita_real': [],
                     'despesa_real': [],
                     'receita_prevista': [],
-                    'despesa_prevista': []
+                    'despesa_prevista': [],
+                    'economias': []
                 }
             }
 
         valor = float(previsao.valor)
-        if previsao.orcamento.tipo == 'Receita':
-            timeline[data_str]['receita_prevista'] += valor
-            timeline[data_str]['detalhes']['receita_prevista'].append(previsao.to_dict())
-        else:
+        
+        # Para qualquer data, sempre mostra a despesa prevista
+        if previsao.orcamento.tipo == 'Despesa':
             timeline[data_str]['despesa_prevista'] += valor
             timeline[data_str]['detalhes']['despesa_prevista'].append(previsao.to_dict())
+        else:
+            timeline[data_str]['receita_prevista'] += valor
+            timeline[data_str]['detalhes']['receita_prevista'].append(previsao.to_dict())
 
-        previsoes_realizadas_ids.add(previsao.id)
+        # Só calcula economia para datas passadas
+        if previsao.data_prevista < hoje and previsao.orcamento.tipo == 'Despesa':
+            valor_realizado = timeline[data_str]['despesa_real']
+            economia = valor - valor_realizado
+            
+            timeline[data_str]['economia'] += economia
+            timeline[data_str]['detalhes']['economias'].append({
+                'descricao': f"{'Economia' if economia > 0 else 'Excesso'} em {previsao.descricao}",
+                'valor': economia,
+                'categoria': previsao.categoria.nome if previsao.categoria else None
+            })
 
     # Calcular saldos acumulados
     extrato_ordenado = []
     saldo_acumulado_real = float(saldo_inicial_total)
     saldo_acumulado_projetado = float(saldo_inicial_total)
+    acumulado_previsto = 0  # Novo: acumulador para valores previstos
 
     for data_str in sorted(timeline.keys()):
         dia = timeline[data_str]
         
-        impacto_real = dia['receita_real'] - dia['despesa_real']
-        impacto_previsto = dia['receita_prevista'] - dia['despesa_prevista']
+        # Impacto no saldo real
+        impacto_real = (dia['receita_real'] - dia['despesa_real'])
         
+        # Acumula o impacto das previsões
+        acumulado_previsto += (dia['receita_prevista'] - dia['despesa_prevista'] + dia['economia'])
+        
+        # Atualiza saldos
         saldo_acumulado_real += impacto_real
-        saldo_acumulado_projetado = saldo_acumulado_real + impacto_previsto
+        saldo_acumulado_projetado = saldo_acumulado_real + acumulado_previsto
         
         extrato_ordenado.append({
             'data': dia['data'],
@@ -484,6 +499,7 @@ def extrato():
             'despesa_real': dia['despesa_real'],
             'receita_prevista': dia['receita_prevista'],
             'despesa_prevista': dia['despesa_prevista'],
+            'economia': dia['economia'],
             'saldo_real': saldo_acumulado_real,
             'saldo_projetado': saldo_acumulado_projetado,
             'detalhes': dia['detalhes']
@@ -498,6 +514,7 @@ def extrato():
         data_inicio=data_inicio,
         data_fim=data_fim
     )
+
 @transacao_bp.route('/relatorios/categoria/<tipo>')
 @login_required
 def relatorio_categoria(tipo):

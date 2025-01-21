@@ -7,14 +7,20 @@ from enum import Enum
 
 class TipoRepeticao(Enum):
     """Enum para os tipos de repetição permitidos."""
-    UNICO = 'unico'
-    DIARIO = 'diario'
-    SEMANAL = 'semanal'
-    MENSAL = 'mensal'
+    DAY = 'day'
+    WEEK = 'week'
+    MONTH = 'month'
+    YEAR = 'year'
     
     @classmethod
     def choices(cls):
         return [(tipo.value, tipo.name.title()) for tipo in cls]
+
+# Nova classe para tipo de repetição mensal
+class TipoRepeticaoMensal(Enum):
+    """Enum para os tipos de repetição mensal."""
+    DIA_DO_MES = 'dayOfMonth'  # Repete no mesmo dia do mês
+    DIA_DA_SEMANA = 'dayOfWeek'  # Repete no mesmo dia da semana (ex: terceira quinta)
 
 class Orcamento(BaseModel):
     """Modelo para orçamentos com lançamentos flexíveis."""
@@ -139,8 +145,13 @@ class OrcamentoLancamento(BaseModel):
     data_inicial = db.Column(db.Date, nullable=False)
     tipo_repeticao = db.Column(db.String(20), nullable=False)
     intervalo_repeticao = db.Column(db.Integer, default=1)
-    dia_fixo = db.Column(db.Integer, nullable=True)  # Para repetições mensais
-    dia_semana = db.Column(db.Integer, nullable=True)  # 0-6 para repetições semanais
+    
+    # Campos específicos para repetição semanal
+    dias_semana = db.Column(db.JSON)  # Lista de dias da semana (0-6)
+    
+    # Campos específicos para repetição mensal
+    tipo_repeticao_mensal = db.Column(db.String(20))  # dayOfMonth ou dayOfWeek
+    semana_do_mes = db.Column(db.Integer)  # 1-5 para primeira-última semana
     
     # Relacionamentos
     orcamento = db.relationship('Orcamento', back_populates='lancamentos')
@@ -171,101 +182,66 @@ class OrcamentoLancamento(BaseModel):
         
         # Validação inicial
         if data_atual > data_fim:
-            print("Data inicial do lançamento após data final do orçamento - retornando lista vazia")
             return datas
             
-        # Caso único
-        if self.tipo_repeticao == 'unico':
-            if data_inicio <= self.data_inicial <= data_fim:
-                datas.append(self.data_inicial)
-            return datas
-
         # Define um limite máximo de iterações para segurança
         max_iteracoes = 1000
         iteracoes = 0
         
         while data_atual <= data_fim and iteracoes < max_iteracoes:
             iteracoes += 1
-            print(f"Iteração {iteracoes}: processando data {data_atual}")
             
             try:
-                # Repetição diária
-                if self.tipo_repeticao == 'diario':
-                    # Adiciona a data se estiver dentro do período
+                if self.tipo_repeticao == TipoRepeticao.DAY.value:
                     if data_inicio <= data_atual <= data_fim:
                         datas.append(data_atual)
                     data_atual += timedelta(days=self.intervalo_repeticao)
                     
-                # Repetição semanal
-                elif self.tipo_repeticao == 'semanal':
-                    if self.dia_semana is not None:
-                        if iteracoes == 1:
-                            # Se não estiver no dia da semana correto
-                            if data_atual.weekday() != self.dia_semana:
-                                # Calcula dias até o próximo dia da semana desejado
-                                dias_ate_primeiro = (self.dia_semana - data_atual.weekday() + 7) % 7
-                                data_atual += timedelta(days=dias_ate_primeiro)
-                            
-                        # Só adiciona se estiver dentro do período do orçamento
-                        if data_inicio <= data_atual <= data_fim:
-                            datas.append(data_atual)
-                            
-                        # Avança para a próxima data apenas se não for a primeira iteração
-                        # ou se já estiver no dia da semana correto
-                        if iteracoes > 1 or data_atual.weekday() == self.dia_semana:
-                            data_atual += timedelta(weeks=self.intervalo_repeticao)
+                elif self.tipo_repeticao == TipoRepeticao.WEEK.value:
+                    # Verifica cada dia da semana selecionado
+                    if self.dias_semana:
+                        semana_atual = data_atual
+                        for _ in range(7):  # Verifica cada dia da semana
+                            if semana_atual.weekday() in self.dias_semana and \
+                               data_inicio <= semana_atual <= data_fim:
+                                datas.append(semana_atual)
+                            semana_atual += timedelta(days=1)
+                        data_atual += timedelta(weeks=self.intervalo_repeticao)
                     else:
-                        # Se não tem dia específico
                         if data_inicio <= data_atual <= data_fim:
                             datas.append(data_atual)
                         data_atual += timedelta(weeks=self.intervalo_repeticao)
                         
-                # Repetição mensal
-                elif self.tipo_repeticao == 'mensal':
-                    if self.dia_fixo:
+                elif self.tipo_repeticao == TipoRepeticao.MONTH.value:
+                    if self.tipo_repeticao_mensal == TipoRepeticaoMensal.DIA_DO_MES.value:
                         if data_inicio <= data_atual <= data_fim:
                             datas.append(data_atual)
                         
-                        # Avança para o próximo mês
+                        # Avança para o próximo mês mantendo o mesmo dia
                         data_atual += relativedelta(months=self.intervalo_repeticao)
                         
-                        # Ajusta para o dia fixo, considerando o último dia do mês
-                        ultimo_dia = calendar.monthrange(data_atual.year, data_atual.month)[1]
-                        dia_efetivo = min(self.dia_fixo, ultimo_dia)
-                        data_atual = date(data_atual.year, data_atual.month, dia_efetivo)
-                    else:
-                        if data_inicio <= data_atual <= data_fim:
-                            datas.append(data_atual)
-                        
-                        # Se não tem dia fixo, mantém o mesmo dia do mês
-                        data_atual += relativedelta(months=self.intervalo_repeticao)
-                        
-                        # Ajusta se o dia não existe no mês
+                        # Ajusta para o último dia do mês se necessário
                         ultimo_dia = calendar.monthrange(data_atual.year, data_atual.month)[1]
                         if data_atual.day > ultimo_dia:
                             data_atual = data_atual.replace(day=ultimo_dia)
-                
+                            
+                    elif self.tipo_repeticao_mensal == TipoRepeticaoMensal.DIA_DA_SEMANA.value:
+                        if data_inicio <= data_atual <= data_fim:
+                            datas.append(data_atual)
+                            
+                        # Calcula o próximo mês mantendo o mesmo dia da semana na mesma semana
+                        data_atual += relativedelta(months=self.intervalo_repeticao)
+                        
+                elif self.tipo_repeticao == TipoRepeticao.YEAR.value:
+                    if data_inicio <= data_atual <= data_fim:
+                        datas.append(data_atual)
+                    data_atual += relativedelta(years=self.intervalo_repeticao)
+                    
             except Exception as e:
                 print(f"Erro ao calcular próxima data: {str(e)}")
                 break
                 
-            if iteracoes == max_iteracoes:
-                print(f"Atingido limite máximo de {max_iteracoes} iterações")
-                break
-        
-        # Ordena as datas antes de retornar
-        datas_ordenadas = sorted(datas)
-        
-        print(f"\nGeração de datas concluída. Total de datas: {len(datas_ordenadas)}")
-        print("Datas geradas:")
-        for data in datas_ordenadas:
-            print(f"- {data.strftime('%d/%m/%Y')}")
-            
-        return datas_ordenadas
-
-    def __repr__(self):
-        return f'<OrcamentoLancamento {self.data_inicial} - R${self.valor}>'
-
+        return sorted(set(datas))  # Remove duplicatas e ordena
 class OrcamentoPrevisao(BaseModel):
     """Modelo para previsões de gastos dos orçamentos."""
     __tablename__ = 'orcamento_previsao'

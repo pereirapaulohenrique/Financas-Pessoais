@@ -190,7 +190,6 @@
                         </button>
                     </div>
                     
-                    <!-- Dentro do modal de orçamento -->
                     <template id="lancamentoTemplate">
                         <div class="lancamento-item border rounded p-3 mb-2">
                             <div class="row">
@@ -198,49 +197,101 @@
                                     <label class="form-label">Data Inicial</label>
                                     <input type="date" class="form-control lancamento-data-inicial" required>
                                 </div>
-                                <div class="col-md-2">
-                                    <label class="form-label">Tipo Repetição</label>
-                                    <select class="form-select lancamento-tipo-repeticao" required>
-                                        <option value="diario">Diário</option>
-                                        <option value="semanal">Semanal</option>
-                                        <option value="mensal">Mensal</option>
-                                    </select>
+                                
+                                <div class="col-md-6">
+                                    <label class="form-label">Recorrência</label>
+                                    <div class="d-flex gap-2 align-items-center">
+                                        <span>Repetir a cada</span>
+                                        <input type="number" class="form-control form-control-sm w-auto lancamento-intervalo" 
+                                               min="1" value="1" style="width: 70px !important;">
+                                        <select class="form-select form-select-sm w-auto lancamento-periodo">
+                                            <option value="day">dia</option>
+                                            <option value="week">semana</option>
+                                            <option value="month">mês</option>
+                                            <option value="year">ano</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <!-- Opções de dias da semana -->
+                                    <div class="mt-2 lancamento-dias-semana">
+                                        <div class="btn-group" role="group">
+                                            <input type="checkbox" class="btn-check" id="dom-{ID}" name="dias-semana-{ID}" value="0">
+                                            <label class="btn btn-outline-primary btn-sm" for="dom-{ID}">D</label>
+                                            
+                                            <input type="checkbox" class="btn-check" id="seg-{ID}" name="dias-semana-{ID}" value="1">
+                                            <label class="btn btn-outline-primary btn-sm" for="seg-{ID}">S</label>
+                                            
+                                            <input type="checkbox" class="btn-check" id="ter-{ID}" name="dias-semana-{ID}" value="2">
+                                            <label class="btn btn-outline-primary btn-sm" for="ter-{ID}">T</label>
+                                            
+                                            <input type="checkbox" class="btn-check" id="qua-{ID}" name="dias-semana-{ID}" value="3">
+                                            <label class="btn btn-outline-primary btn-sm" for="qua-{ID}">Q</label>
+                                            
+                                            <input type="checkbox" class="btn-check" id="qui-{ID}" name="dias-semana-{ID}" value="4">
+                                            <label class="btn btn-outline-primary btn-sm" for="qui-{ID}">Q</label>
+                                            
+                                            <input type="checkbox" class="btn-check" id="sex-{ID}" name="dias-semana-{ID}" value="5">
+                                            <label class="btn btn-outline-primary btn-sm" for="sex-{ID}">S</label>
+                                            
+                                            <input type="checkbox" class="btn-check" id="sab-{ID}" name="dias-semana-{ID}" value="6">
+                                            <label class="btn btn-outline-primary btn-sm" for="sab-{ID}">S</label>
+                                        </div>
+                                    </div>
+                
+                                    <!-- Opções de repetição mensal -->
+                                    <div class="mt-2 lancamento-repeticao-mensal">
+                                        <div class="form-check mb-2">
+                                            <input type="radio" class="form-check-input" name="tipo-mes-{ID}" value="dayOfMonth" checked>
+                                            <label class="form-check-label">Mensalmente no dia</label>
+                                            <div class="mt-1 ms-4">
+                                                <select class="form-select form-select-sm w-auto" name="dia-mes-{ID}">
+                                                    {% for dia in range(1, 32) %}
+                                                    <option value="{{ dia }}">{{ dia }}º dia</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="form-check">
+                                            <input type="radio" class="form-check-input" name="tipo-mes-{ID}" value="dayOfWeek">
+                                            <label class="form-check-label">Mensalmente na</label>
+                                            <div class="mt-1 ms-4 d-flex gap-2">
+                                                <select class="form-select form-select-sm w-auto" name="semana-mes-{ID}">
+                                                    <option value="1">primeira</option>
+                                                    <option value="2">segunda</option>
+                                                    <option value="3">terceira</option>
+                                                    <option value="4">quarta</option>
+                                                    <option value="5">última</option>
+                                                </select>
+                                                <select class="form-select form-select-sm w-auto" name="dia-semana-mes-{ID}">
+                                                    <option value="0">domingo</option>
+                                                    <option value="1">segunda-feira</option>
+                                                    <option value="2">terça-feira</option>
+                                                    <option value="3">quarta-feira</option>
+                                                    <option value="4">quinta-feira</option>
+                                                    <option value="5">sexta-feira</option>
+                                                    <option value="6">sábado</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="col-md-2">
-                                    <label class="form-label">Intervalo</label>
-                                    <input type="number" class="form-control lancamento-intervalo" min="1" value="1" required>
-                                </div>
+                    
                                 <div class="col-md-2">
                                     <label class="form-label">Valor</label>
                                     <input type="number" class="form-control lancamento-valor" step="0.01" required>
                                 </div>
-                                <div class="col-md-2">
-                                    <label class="form-label">Descrição</label>
-                                    <input type="text" class="form-control lancamento-descricao">
-                                </div>
+                    
                                 <div class="col-md-1 d-flex align-items-end">
                                     <button type="button" class="btn btn-danger btn-sm" onclick="removerLancamento(this)">
                                         <i class="fas fa-trash"></i>
                                     </button>
                                 </div>
                             </div>
-                            <!-- Campos condicionais baseados no tipo de repetição -->
-                            <div class="row mt-2 lancamento-campos-adicionais" style="display: none;">
-                                <div class="col-md-3 campo-dia-fixo" style="display: none;">
-                                    <label class="form-label">Dia do Mês</label>
-                                    <input type="number" class="form-control lancamento-dia-fixo" min="1" max="31">
-                                </div>
-                                <div class="col-md-3 campo-dia-semana" style="display: none;">
-                                    <label class="form-label">Dia da Semana</label>
-                                    <select class="form-select lancamento-dia-semana">
-                                        <option value="0">Domingo</option>
-                                        <option value="1">Segunda</option>
-                                        <option value="2">Terça</option>
-                                        <option value="3">Quarta</option>
-                                        <option value="4">Quinta</option>
-                                        <option value="5">Sexta</option>
-                                        <option value="6">Sábado</option>
-                                    </select>
+                            
+                            <div class="row mt-2">
+                                <div class="col-12">
+                                    <label class="form-label">Descrição</label>
+                                    <input type="text" class="form-control lancamento-descricao">
                                 </div>
                             </div>
                         </div>
@@ -258,6 +309,7 @@
 
 {% block extra_js %}
 <script>
+// Event Listeners para Filtros
 document.getElementById('filtroForm').addEventListener('submit', function(e) {
     e.preventDefault();
     const data_inicio = document.getElementById('data_inicio_filtro').value;
@@ -272,8 +324,11 @@ function limparFiltros() {
     window.location.href = '/orcamento/';
 }
 
-// Preencher filtros com valores da URL se existirem
-window.addEventListener('load', function() {
+// Inicialização
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM carregado, inicializando handlers de orçamento...');
+    
+    // Preencher filtros com valores da URL
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.has('data_inicio')) {
         document.getElementById('data_inicio_filtro').value = urlParams.get('data_inicio');
@@ -281,8 +336,148 @@ window.addEventListener('load', function() {
     if (urlParams.has('data_fim')) {
         document.getElementById('data_fim_filtro').value = urlParams.get('data_fim');
     }
+    
+    // Configura lançamentos existentes
+    document.querySelectorAll('.lancamento-item').forEach(item => {
+        configurarRecorrencia(item);
+    });
 });
-// Funções JavaScript para manipular o orçamento
+
+// Funções de Manipulação de Lançamentos
+function configurarRecorrencia(lancamentoElement) {
+    console.log('Configurando recorrência para elemento:', lancamentoElement);
+    
+    const selectPeriodo = lancamentoElement.querySelector('select.lancamento-periodo');
+    const divDiasSemana = lancamentoElement.querySelector('div.lancamento-dias-semana');
+    const divRepeticaoMensal = lancamentoElement.querySelector('div.lancamento-repeticao-mensal');
+    
+    if (!selectPeriodo || !divDiasSemana || !divRepeticaoMensal) {
+        console.error('Elementos necessários não encontrados');
+        return;
+    }
+
+    // Esconde inicialmente
+    divDiasSemana.style.display = 'none';
+    divRepeticaoMensal.style.display = 'none';
+    
+    // Configura os radio buttons da repetição mensal
+    const radiosRepeticaoMensal = divRepeticaoMensal.querySelectorAll('input[type="radio"]');
+    radiosRepeticaoMensal.forEach(radio => {
+        radio.addEventListener('change', function() {
+            const diaMesDiv = this.closest('.form-check').querySelector('[name^="dia-mes-"]')?.parentElement;
+            const diaSemanaDiv = this.closest('.form-check').querySelector('[name^="semana-mes-"]')?.parentElement;
+            
+            if (diaMesDiv) diaMesDiv.style.display = this.value === 'dayOfMonth' ? 'block' : 'none';
+            if (diaSemanaDiv) diaSemanaDiv.style.display = this.value === 'dayOfWeek' ? 'flex' : 'none';
+        });
+    });
+    
+    function handlePeriodoChange() {
+        console.log('Período mudou para:', this.value);
+        
+        divDiasSemana.style.display = 'none';
+        divRepeticaoMensal.style.display = 'none';
+        
+        switch(this.value) {
+            case 'week':
+                console.log('Mostrando opções semanais');
+                divDiasSemana.style.display = 'block';
+                break;
+            case 'month':
+                console.log('Mostrando opções mensais');
+                divRepeticaoMensal.style.display = 'block';
+                // Dispara o evento change no radio selecionado
+                const selectedRadio = divRepeticaoMensal.querySelector('input[type="radio"]:checked');
+                if (selectedRadio) selectedRadio.dispatchEvent(new Event('change'));
+                break;
+        }
+    }
+    
+    selectPeriodo.addEventListener('change', handlePeriodoChange);
+    selectPeriodo.dispatchEvent(new Event('change'));
+}
+
+function adicionarLancamento(dados = null) {
+    console.log('Adicionando novo lançamento:', dados);
+    
+    const template = document.getElementById('lancamentoTemplate');
+    const container = document.getElementById('lancamentosContainer');
+    
+    if (!template || !container) {
+        console.error('Template ou container não encontrado');
+        return;
+    }
+    
+    // Cria um elemento temporário e clona o conteúdo do template para ele
+    const tempDiv = document.createElement('div');
+    tempDiv.appendChild(template.content.cloneNode(true));
+    
+    // Gera ID único
+    const lancamentoId = `lancamento-${Date.now()}`;
+    
+    // Substitui os placeholders {ID} no HTML do elemento temporário
+    tempDiv.innerHTML = tempDiv.innerHTML.replace(/{ID}/g, lancamentoId);
+    
+    // Adiciona o primeiro (e único) filho do elemento temporário ao container
+    const newElement = container.appendChild(tempDiv.firstElementChild);
+    
+    // Configura a recorrência
+    configurarRecorrencia(newElement);
+    
+    // Preenche dados se fornecidos
+    if (dados) {
+        preencherDadosLancamento(newElement, dados, lancamentoId);
+    }
+    
+    return newElement;
+}
+
+function preencherDadosLancamento(element, dados, lancamentoId) {
+    if (!element || !dados) return;
+
+    if (dados.data_inicial) {
+        const dataInput = element.querySelector('.lancamento-data-inicial');
+        if (dataInput) dataInput.value = dados.data_inicial;
+    }
+    
+    if (dados.valor) {
+        const valorInput = element.querySelector('.lancamento-valor');
+        if (valorInput) valorInput.value = dados.valor;
+    }
+    
+    if (dados.descricao) {
+        const descInput = element.querySelector('.lancamento-descricao');
+        if (descInput) descInput.value = dados.descricao;
+    }
+    
+    const selectPeriodo = element.querySelector('.lancamento-periodo');
+    if (selectPeriodo && dados.tipo_repeticao) {
+        selectPeriodo.value = dados.tipo_repeticao;
+        selectPeriodo.dispatchEvent(new Event('change'));
+        
+        if (dados.dias_semana && Array.isArray(dados.dias_semana)) {
+            dados.dias_semana.forEach(dia => {
+                const checkbox = element.querySelector(`input[value="${dia}"][name="dias-semana-${lancamentoId}"]`);
+                if (checkbox) checkbox.checked = true;
+            });
+        }
+    }
+    
+    if (dados.intervalo_repeticao) {
+        const intervaloInput = element.querySelector('.lancamento-intervalo');
+        if (intervaloInput) intervaloInput.value = dados.intervalo_repeticao;
+    }
+}
+
+function removerLancamento(button) {
+    console.log('Removendo lançamento');
+    const lancamentoItem = button.closest('.lancamento-item');
+    if (lancamentoItem) {
+        lancamentoItem.remove();
+    }
+}
+
+// Funções de Manipulação de Orçamentos
 function editarOrcamento(id) {
     fetch(`/orcamento/${id}`)
         .then(response => response.json())
@@ -293,7 +488,6 @@ function editarOrcamento(id) {
             document.getElementById('data_inicio').value = data.data_inicio;
             document.getElementById('data_fim').value = data.data_fim;
             
-            // Limpa e adiciona os lançamentos
             document.getElementById('lancamentosContainer').innerHTML = '';
             data.lancamentos.forEach(lancamento => {
                 adicionarLancamento(lancamento);
@@ -303,222 +497,108 @@ function editarOrcamento(id) {
         });
 }
 
-function adicionarLancamento(dados = null) {
-    const template = document.getElementById('lancamentoTemplate');
-    const container = document.getElementById('lancamentosContainer');
-    const clone = template.content.cloneNode(true);
-    
-    if (dados) {
-        clone.querySelector('.lancamento-data-inicial').value = dados.data_inicial;
-        clone.querySelector('.lancamento-tipo-repeticao').value = dados.tipo_repeticao;
-        clone.querySelector('.lancamento-intervalo').value = dados.intervalo_repeticao;
-        clone.querySelector('.lancamento-valor').value = dados.valor;
-        clone.querySelector('.lancamento-descricao').value = dados.descricao;
-        
-        // Configurar campos específicos baseado no tipo de repetição
-        if (dados.tipo_repeticao === 'mensal' && dados.dia_fixo) {
-            clone.querySelector('.lancamento-dia-fixo').value = dados.dia_fixo;
-        }
-        if (dados.tipo_repeticao === 'semanal' && dados.dia_semana !== null) {
-            clone.querySelector('.lancamento-dia-semana').value = dados.dia_semana;
-        }
-    }
-    
-    container.appendChild(clone);
-    configurarCamposLancamento();
-}
-
-function removerLancamento(button) {
-    button.closest('.lancamento-item').remove();
-}
-
 async function salvarOrcamento() {
-    try {
-        const form = document.getElementById('formOrcamento');
-        const formData = new FormData(form);
+   try {
+       console.log('Iniciando salvamento do orçamento...');
+       
+       const form = document.getElementById('formOrcamento');
+       const formData = new FormData(form);
 
-        // Validações básicas
-        const tipo = form.querySelector('#tipo').value;
-        const categoria = form.querySelector('#categoria').value;
-        const dataInicio = form.querySelector('#data_inicio').value;
-        const dataFim = form.querySelector('#data_fim').value;
+       // Validações básicas
+       const tipo = document.getElementById('tipo').value;
+       const categoria = document.getElementById('categoria').value;
+       if (!tipo || !categoria) {
+           alert('Por favor, preencha o tipo e a categoria do orçamento');
+           return;
+       }
 
-        if (!tipo || !categoria || !dataInicio || !dataFim) {
-            alert('Todos os campos são obrigatórios');
-            return;
-        }
+       const lancamentos = [];
+       document.querySelectorAll('.lancamento-item').forEach((item, index) => {
+           console.log(`Processando lançamento ${index + 1}`);
+           
+           const dataInicial = item.querySelector('.lancamento-data-inicial').value;
+           const valor = parseFloat(item.querySelector('.lancamento-valor').value);
+           
+           if (!dataInicial || isNaN(valor) || valor <= 0) {
+               throw new Error(`Por favor, verifique a data e valor do lançamento ${index + 1}`);
+           }
 
-        // Coleta os dados dos lançamentos
-        const lancamentos = [];
-        document.querySelectorAll('.lancamento-item').forEach(item => {
-            if (!item.querySelector('.lancamento-data-inicial').value || 
-                !item.querySelector('.lancamento-valor').value) {
-                return; // Pula lançamentos incompletos
-            }
+           const lancamento = {
+               data_inicial: dataInicial,
+               valor: valor,
+               descricao: item.querySelector('.lancamento-descricao').value || '',
+               intervalo: parseInt(item.querySelector('.lancamento-intervalo').value) || 1,
+               periodo: item.querySelector('.lancamento-periodo').value
+           };
 
-            const lancamento = {
-                data_inicial: item.querySelector('.lancamento-data-inicial').value,
-                tipo_repeticao: item.querySelector('.lancamento-tipo-repeticao').value,
-                intervalo_repeticao: parseInt(item.querySelector('.lancamento-intervalo').value) || 1,
-                valor: parseFloat(item.querySelector('.lancamento-valor').value),
-                descricao: item.querySelector('.lancamento-descricao').value || ''
-            };
+           switch(lancamento.periodo) {
+               case 'week':
+                   const diasSemana = Array.from(
+                       item.querySelectorAll('input[type="checkbox"]:checked')
+                   ).map(cb => parseInt(cb.value));
+                   
+                   if (diasSemana.length === 0) {
+                       throw new Error(`Selecione pelo menos um dia da semana no lançamento ${index + 1}`);
+                   }
+                   
+                   lancamento.dias_semana = diasSemana;
+                   break;
 
-            // Adiciona campos específicos baseado no tipo de repetição
-            if (lancamento.tipo_repeticao === 'mensal') {
-                const diaFixo = item.querySelector('.lancamento-dia-fixo');
-                if (diaFixo && diaFixo.value) {
-                    lancamento.dia_fixo = parseInt(diaFixo.value);
-                }
-            }
-            if (lancamento.tipo_repeticao === 'semanal') {
-                const diaSemana = item.querySelector('.lancamento-dia-semana');
-                if (diaSemana && diaSemana.value !== '') {
-                    lancamento.dia_semana = parseInt(diaSemana.value);
-                }
-            }
+               case 'month':
+                   const tipoRepeticaoMensal = item.querySelector('input[name^="tipo-mes-"]:checked');
+                   if (!tipoRepeticaoMensal) {
+                       throw new Error(`Selecione o tipo de repetição mensal no lançamento ${index + 1}`);
+                   }
 
-            lancamentos.push(lancamento);
-        });
+                   lancamento.tipo_repeticao_mensal = tipoRepeticaoMensal.value;
+                   
+                   if (tipoRepeticaoMensal.value === 'dayOfMonth') {
+                       const diaMes = item.querySelector('select[name^="dia-mes-"]');
+                       if (!diaMes) {
+                           throw new Error(`Selecione o dia do mês no lançamento ${index + 1}`);
+                       }
+                       lancamento.dia_mes = parseInt(diaMes.value);
+                   } else {
+                       const semanaMes = item.querySelector('select[name^="semana-mes-"]');
+                       const diaSemana = item.querySelector('select[name^="dia-semana-mes-"]');
+                       
+                       if (!semanaMes || !diaSemana) {
+                           throw new Error(`Selecione a semana e o dia no lançamento ${index + 1}`);
+                       }
+                       
+                       lancamento.semana_mes = parseInt(semanaMes.value);
+                       lancamento.dia_semana_mes = parseInt(diaSemana.value);
+                   }
+                   break;
+           }
 
-        if (lancamentos.length === 0) {
-            alert('Adicione pelo menos um lançamento');
-            return;
-        }
+           console.log('Dados do lançamento:', lancamento);
+           lancamentos.push(lancamento);
+       });
 
-        formData.append('lancamentos', JSON.stringify(lancamentos));
+       if (lancamentos.length === 0) {
+           throw new Error('Adicione pelo menos um lançamento ao orçamento');
+       }
 
-        // Log dos dados antes do envio
-        console.log('Preparando para enviar dados:', {
-            tipo,
-            categoria,
-            data_inicio: dataInicio,
-            data_fim: dataFim,
-            lancamentos: lancamentos
-        });
+       formData.append('lancamentos', JSON.stringify(lancamentos));
 
-        // Adiciona um timeout mais longo para a requisição
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 60000); // Aumentado para 60 segundos
+       console.log('Enviando dados para o servidor...');
+       const response = await fetch('/orcamento/salvar', {
+           method: 'POST',
+           body: formData
+       });
 
-        const response = await fetch('/orcamento/salvar', {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            signal: controller.signal,
-            credentials: 'same-origin'
-        });
-
-        clearTimeout(timeoutId);
-
-        // Log da resposta
-        console.log('Status da resposta:', response.status);
-        console.log('Headers da resposta:', Object.fromEntries(response.headers.entries()));
-
-        const responseText = await response.text();
-        console.log('Texto da resposta:', responseText);
-
-        let data;
-        try {
-            data = JSON.parse(responseText);
-        } catch (e) {
-            console.error('Erro ao parsear resposta JSON:', e);
-            throw new Error('Resposta inválida do servidor');
-        }
-
-        if (!response.ok) {
-            throw new Error(`Erro HTTP ${response.status}: ${data.error || responseText}`);
-        }
-
-        if (data.success) {
-            // Tenta fechar o modal antes do reload
-            try {
-                const modal = bootstrap.Modal.getInstance(document.getElementById('modalOrcamento'));
-                if (modal) {
-                    modal.hide();
-                }
-            } catch (e) {
-                console.error('Erro ao fechar modal:', e);
-            }
-
-            // Pequeno delay antes do reload para garantir que o modal fechou
-            setTimeout(() => {
-                window.location.reload();
-            }, 100);
-        } else {
-            throw new Error(data.error || 'Erro desconhecido ao salvar orçamento');
-        }
-
-    } catch (error) {
-        console.error('Erro detalhado ao salvar orçamento:', error);
-        if (error.name === 'AbortError') {
-            alert('A requisição excedeu o tempo limite. Por favor, tente novamente.');
-        } else {
-            alert(`Erro ao salvar orçamento: ${error.message}`);
-        }
-        
-        // Log adicional de informações de debug
-        console.log('Informações adicionais de debug:');
-        console.log('- URL:', window.location.href);
-        console.log('- User Agent:', navigator.userAgent);
-        console.log('- Timestamp:', new Date().toISOString());
-    }
-}
-
-function configurarCamposLancamento() {
-    document.querySelectorAll('.lancamento-tipo-repeticao').forEach(select => {
-        select.addEventListener('change', function() {
-            const lancamentoItem = this.closest('.lancamento-item');
-            const camposAdicionais = lancamentoItem.querySelector('.lancamento-campos-adicionais');
-            const campoDiaFixo = lancamentoItem.querySelector('.campo-dia-fixo');
-            const campoDiaSemana = lancamentoItem.querySelector('.campo-dia-semana');
-
-            // Reset campos
-            camposAdicionais.style.display = 'none';
-            campoDiaFixo.style.display = 'none';
-            campoDiaSemana.style.display = 'none';
-
-            // Mostra campos relevantes baseado no tipo de repetição
-            switch(this.value) {
-                case 'mensal':
-                    camposAdicionais.style.display = 'flex';
-                    campoDiaFixo.style.display = 'block';
-                    break;
-                case 'semanal':
-                    camposAdicionais.style.display = 'flex';
-                    campoDiaSemana.style.display = 'block';
-                    break;
-            }
-        });
-    });
-}
-
-function adicionarLancamento(dados = null) {
-    const template = document.getElementById('lancamentoTemplate');
-    const container = document.getElementById('lancamentosContainer');
-    const clone = template.content.cloneNode(true);
-    
-    if (dados) {
-        clone.querySelector('.lancamento-data-inicial').value = dados.data_inicial;
-        clone.querySelector('.lancamento-tipo-repeticao').value = dados.tipo_repeticao;
-        clone.querySelector('.lancamento-intervalo').value = dados.intervalo_repeticao;
-        clone.querySelector('.lancamento-valor').value = dados.valor;
-        clone.querySelector('.lancamento-descricao').value = dados.descricao;
-        
-        // Configurar campos específicos baseado no tipo de repetição
-        if (dados.tipo_repeticao === 'mensal' && dados.dia_fixo) {
-            clone.querySelector('.lancamento-dia-fixo').value = dados.dia_fixo;
-        }
-        if (dados.tipo_repeticao === 'semanal' && dados.dia_semana !== null) {
-            clone.querySelector('.lancamento-dia-semana').value = dados.dia_semana;
-        }
-    }
-    
-    container.appendChild(clone);
-    configurarCamposLancamento();
+       const result = await response.json();
+       if (result.success) {
+           console.log('Orçamento salvo com sucesso');
+           window.location.reload();
+       } else {
+           throw new Error(result.error || 'Erro ao salvar orçamento');
+       }
+   } catch (error) {
+       console.error('Erro ao salvar:', error);
+       alert('Erro ao salvar orçamento: ' + error.message);
+   }
 }
 
 function excluirOrcamento(id) {
@@ -532,7 +612,6 @@ function excluirOrcamento(id) {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                // Recarrega a página para atualizar a lista
                 location.reload();
             } else {
                 alert('Erro ao excluir orçamento: ' + data.error);

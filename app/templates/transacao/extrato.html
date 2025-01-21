@@ -144,6 +144,7 @@
                     <th class="text-end">Despesa Real</th>
                     <th class="text-end">Receita Prevista</th>
                     <th class="text-end">Despesa Prevista</th>
+                    <th class="text-end">Economia</th>  <!-- Nova coluna -->
                     <th class="text-end">Saldo Projetado</th>
                 </tr>
             </thead>
@@ -196,6 +197,18 @@
                                   data-valor="{{ linha.despesa_prevista }}"
                                   data-detalhes='{{ detalhes_despesa_prev }}'>
                                 R$ {{ "%.2f"|format(linha.despesa_prevista)|replace('.', ',') }}
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        {% if linha.economia != 0 %}
+                            {% set detalhes_economia = linha.detalhes.economias|tojson|safe if linha.detalhes.economias else '[]' %}
+                            <span class="valor-clicavel {{ 'valor-positivo' if linha.economia > 0 else 'valor-negativo' }}"
+                                  data-tipo="economia"
+                                  data-data="{{ linha.data.strftime('%Y-%m-%d') }}"
+                                  data-valor="{{ linha.economia }}"
+                                  data-detalhes='{{ detalhes_economia }}'>
+                                R$ {{ "%.2f"|format(linha.economia)|replace('.', ',') }}
                             </span>
                         {% endif %}
                     </td>
